@@ -1,5 +1,6 @@
 (ns pennygame.ui
-  (:require-macros [pennygame.macros :refer [spy]]))
+  (:require-macros [pennygame.macros :refer [spy]])
+  (:require [cljs.core.async :refer [put!]]))
 
 (defn pair [[x y]]
   (str x "," y))
@@ -18,6 +19,31 @@
 
 (defn translate [x y]
   (str "translate(" x "," y ")"))
+
+(defn dots [n]
+  (condp = n
+    0 []
+    1 [[0 0]]
+    2 [[-1 -1] [1 1]]
+    3 [[-1 -1] [0 0] [1 1]]
+    4 [[-1 -1] [-1 1] [1 -1] [1 1]]
+    5 [[-1 -1] [-1 1] [0 0] [1 -1] [1 1]]
+    6 [[-1 -1] [-1 0] [-1 1] [1 -1] [1 0] [1 1]]))
+
+(defn die [{w :width h :height :keys [x y value]}]
+  (let [half (/ w 2)]
+    [:g {:transform (translate (+ half x)
+                               (+ half (- y (/ *size* 2))))}
+     [:rect {:class "die"
+             :x (- half)
+             :y (- half)
+             :width w
+             :height w}]
+     (let [s (partial * (/ w 4))]
+       (for [[x y] (dots value)]
+         [:circle {:cx (s x)
+                   :cy (s y)
+                   :r (/ w 10)}]))]))
 
 (defn spout [w]
   (let [s 3]
@@ -61,6 +87,11 @@
   [:g {:class "scenario" :transform (translate x 0)}
    (map station stations)])
 
-(defn ui [{:keys [scenarios]} actions]
-  [:svg {:id "space" :width "100%" :height "100%"}
-   (map scenario scenarios)])
+(defn ui [{:keys [dice scenarios]} actions]
+  [:main {}
+   [:button {:style {:position :fixed :left 0 :top 0}
+              :onclick #(put! actions [:roll [1 2 3 4 5]])}
+     "Roll"]
+     [:svg {:id "space" :width "100%" :height "100%"}
+      (map die dice)
+      (map scenario scenarios)] ])

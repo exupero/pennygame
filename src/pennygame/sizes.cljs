@@ -2,14 +2,19 @@
   (:require-macros [pennygame.macros :refer [spy]]))
 
 (def height
-  {:supply 1
-   :processing 3
+  {:supply 2
+   :processing 4
    :distribution 1})
 
+(def top-adjust
+  {:supply -1
+   :processing 0
+   :distribution 0})
+
 (def height-adjust
-  {:supply 20
-   :processing 20
-   :distribution -1})
+  {:supply -20
+   :processing -20
+   :distribution 1})
 
 (defn heights [h ss]
   (let [in-units (map (comp height :type) ss)
@@ -26,9 +31,9 @@
   (let [hs (heights h ss)
         ys (reduce (partial stack +) [] (cons 0 hs))]
     (map (fn [h y {t :type :as s}]
-           (station {:y y
+           (station {:y (+ y (top-adjust t))
                      :width w
-                     :height (- h (height-adjust t))}
+                     :height (+ h (height-adjust t))}
                     s))
          hs ys ss)))
 
