@@ -1,6 +1,8 @@
 (ns pennygame.sizes
   (:require-macros [pennygame.macros :refer [spy]]))
 
+(def penny 20)
+
 (def height
   {:supply 2
    :processing 4
@@ -11,10 +13,10 @@
    :processing 0
    :distribution 0})
 
-(def height-adjust
-  {:supply -20
-   :processing -20
-   :distribution 1})
+(def bin-h-
+  {:supply (* 2 penny)
+   :processing (* 2 penny)
+   :distribution 0})
 
 (defn heights [h ss]
   (let [in-units (map (comp height :type) ss)
@@ -31,10 +33,13 @@
   (let [hs (heights h ss)
         ys (reduce (partial stack +) [] (cons 0 hs))]
     (map (fn [h y {t :type :as s}]
-           (station {:y (+ y (top-adjust t))
-                     :width w
-                     :height (+ h (height-adjust t))}
-                    s))
+           (let [h (let [bh (- h (bin-h- t))]
+                     (- bh (mod bh penny)))]
+             (station {:y (+ y (top-adjust t))
+                       :width w
+                       :bin-h h
+                       :spout-y h}
+                      s)))
          hs ys ss)))
 
 (defn scenario [{w :width h :height :as pos} {ss :stations :as s}]

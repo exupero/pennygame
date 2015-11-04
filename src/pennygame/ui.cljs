@@ -1,6 +1,7 @@
 (ns pennygame.ui
   (:require-macros [pennygame.macros :refer [spy]])
-  (:require [cljs.core.async :refer [put!]]))
+  (:require [cljs.core.async :refer [put!]]
+            [pennygame.sizes :as s]))
 
 (defn pair [[x y]]
   (str x "," y))
@@ -14,8 +15,6 @@
 
 (defn closed-path [pts]
   (str (path pts) "Z"))
-
-(def *size* 20)
 
 (defn translate [x y]
   (str "translate(" x "," y ")"))
@@ -32,8 +31,7 @@
 
 (defn die [{w :width h :height :keys [x y value]}]
   (let [half (/ w 2)]
-    [:g {:transform (translate (+ half x)
-                               (+ half (- y (/ *size* 2))))}
+    [:g {:transform (translate half half)}
      [:rect {:class "die"
              :x (- half)
              :y (- half)
@@ -45,53 +43,90 @@
                    :cy (s y)
                    :r (/ w 10)}]))]))
 
-(defn spout [w]
-  (let [s 3]
+(defn penny-path [w h]
+  (let [half (/ s/penny 2)
+        left half
+        right (- w half)]
+    (loop [ps []
+           opens-left true
+           y (- h half)]
+      (if (pos? y)
+        (recur (concat ps (if opens-left
+                            [[right y] [left y]]
+                            [[left y] [right y]]))
+               (not opens-left)
+               (- y s/penny))
+        [:path {:class "penny-path"
+                :d (path ps)}]))))
+
+(defn shelves [w h]
+  (loop [ss []
+         opens-left true
+         y (- h s/penny)]
+    (if (pos? y)
+      (recur (conj ss [:line {:class "shelf"
+                              :transform (translate 0 y)
+                              :x1 (if opens-left s/penny 0)
+                              :x2 (if opens-left w (- w s/penny))}])
+             (not opens-left)
+             (- y s/penny))
+      [:g {} (apply list ss)])))
+
+(defn bin [w h]
+  [:rect {:class "bin" :width w :height h}])
+
+(defn spout [y w]
+  (let [sp 3
+        top (- s/penny)
+        bottom (+ sp s/penny)
+        entrance-left (- w s/penny)]
     [:path {:class "spout"
-            :d (closed-path [[w (- *size*)]
-                             [w (+ s *size*)]
-                             [0 (+ s *size*)]
-                             [0 s]
-                             [(- w *size*) s]
-                             [(- w *size*) (- *size*)]])}]))
+            :transform (translate 0 y)
+            :d (closed-path [[w top]
+                             [w bottom]
+                             [0 bottom]
+                             [0 sp]
+                             [entrance-left sp]
+                             [entrance-left top]])}]))
+
+(defn penny [bottom {:keys [x y]}]
+  [:circle {:class "penny"
+            :cx x
+            :cy y
+            :r (- (/ s/penny 2) 2)}])
 
 (defmulti station :type)
 
-(defmethod station :supply [{w :width h :height :keys [y]}]
-  [:g {:class "supply"
-       :transform (translate 0 y)}
-   (let [bottom (- h *size*)]
-     (list
-       [:rect {:class "bin"
-               :width w :height bottom}]
-       [:g {:transform (translate 0 bottom)}
-        (spout w)]))])
+(defmethod station :supply [{w :width :keys [bin-h spout-y]}]
+  [:g {:class "supply"}
+   (shelves w bin-h)
+   (bin w bin-h)
+   (spout spout-y w)])
 
-(defmethod station :processing [{w :width h :height :keys [y]}]
-  [:g {:class "station"
-       :transform (translate 0 y)}
-   (let [bottom (- h *size*)]
-     (list
-       [:rect {:class "bin"
-               :width w :height bottom}]
-       [:g {:transform (translate 0 bottom)}
-        (spout w)]))])
+(defmethod station :processing [{w :width :keys [bin-h spout-y]}]
+  [:g {:class "station"}
+   (penny-path w bin-h)
+   (shelves w bin-h)
+   (bin w bin-h)
+   (spout spout-y w)])
 
-(defmethod station :distribution [{w :width h :height :keys [y]}]
-  [:g {:class "supply"
-       :transform (translate 0 y)}
-   [:rect {:class "bin"
-           :width w :height h}]])
+(defmethod station :distribution [{w :width :keys [bin-h]}]
+  [:g {:class "supply"}
+   (bin w bin-h)])
 
 (defn scenario [{:keys [x stations]}]
   [:g {:class "scenario" :transform (translate x 0)}
-   (map station stations)])
+   (for [{:keys [y] :as s} stations]
+     [:g {:transform (translate 0 y)}
+      (station s)])])
 
 (defn ui [{:keys [dice scenarios]} actions]
   [:main {}
    [:button {:style {:position :fixed :left 0 :top 0}
-              :onclick #(put! actions [:roll [1 2 3 4 5]])}
+              :onclick (fn [] (put! actions [:roll (repeatedly 5 #(->> (js/Math.random) (* 6) inc int))]))}
      "Roll"]
      [:svg {:id "space" :width "100%" :height "100%"}
-      (map die dice)
+      (for [{:keys [x y] :as d} dice]
+        [:g {:transform (translate x y)}
+         (die d)])
       (map scenario scenarios)] ])

@@ -10,13 +10,13 @@
 (enable-console-print!)
 
 (defn dice-positions [model {w :width :keys [x]}]
-  (let [ss (->> model :scenarios first :stations)
+  (let [ss (->> model :scenarios first :stations (drop 1))
         hs (map :height ss)
         ys (map :y ss)
         ds (fn [d y h]
              (assoc d
                :x x
-               :y (+ y h (- (/ w 2)))
+               :y (+ y h (- 0 (/ w 2) 40))
                :width w
                :height w))]
     (update model :dice (partial map ds) ys hs)))
@@ -32,70 +32,32 @@
     [:roll dice] (update model :dice (partial map #(assoc %1 :value %2)) dice)))
 
 (def initial-model
-  {:dice [{:value 0
-           :type :supply}
-          {:value 0
-           :type :processing}
-          {:value 0
-           :type :processing}
-          {:value 0
-           :type :processing}
-          {:value 0
-           :type :processing}]
+  {:dice [{:value 0 :type :supply}
+          {:value 0 :type :processing}
+          {:value 0 :type :processing}
+          {:value 0 :type :processing}
+          {:value 0 :type :processing}]
    :scenarios [{:index 0
-                :stations [{:index 0
-                            :type :supply
-                            :die 0}
-                           {:index 1
-                            :type :processing
-                            :die 1}
-                           {:index 2
-                            :type :processing
-                            :die 2}
-                           {:index 3
-                            :type :processing
-                            :die 3}
-                           {:index 4
-                            :type :processing
-                            :die 4}
-                           {:index 5
-                            :type :distribution}]}
+                :stations [{:index 0 :type :supply}
+                           {:index 1 :type :processing :die 0 :pennies [{}]}
+                           {:index 2 :type :processing :die 1 :pennies []}
+                           {:index 3 :type :processing :die 2 :pennies []}
+                           {:index 4 :type :processing :die 3 :pennies []}
+                           {:index 5 :type :distribution :die 4}]}
                {:index 1
-                :stations [{:index 0
-                            :type :supply
-                            :die 0}
-                           {:index 1
-                            :type :processing
-                            :die 1}
-                           {:index 2
-                            :type :processing
-                            :die 2}
-                           {:index 3
-                            :type :processing
-                            :die 3}
-                           {:index 4
-                            :type :processing
-                            :die 4}
-                           {:index 5
-                            :type :distribution}]}
+                :stations [{:index 0 :type :supply}
+                           {:index 1 :type :processing :die 0 :pennies []}
+                           {:index 2 :type :processing :die 1 :pennies []}
+                           {:index 3 :type :processing :die 2 :pennies []}
+                           {:index 4 :type :processing :die 3 :pennies []}
+                           {:index 5 :type :distribution :die 4}]}
                {:index 2
-                :stations [{:index 0
-                            :type :supply
-                            :die 0}
-                           {:index 1
-                            :type :processing
-                            :die 1}
-                           {:index 2
-                            :type :processing
-                            :die 2}
-                           {:index 3
-                            :type :processing
-                            :die 3}
-                           {:index 4
-                            :type :processing
-                            :die 4}
-                           {:index 5
-                            :type :distribution}]}]})
+                :stations [{:index 0 :type :supply}
+                           {:index 1 :type :processing :die 0 :pennies []}
+                           {:index 2 :type :processing :die 1 :pennies []}
+                           {:index 3 :type :processing :die 2 :pennies []}
+                           {:index 4 :type :processing :die 3 :pennies []}
+                           {:index 5 :type :distribution :die 4}]}]})
 
 (defonce actions (chan))
 

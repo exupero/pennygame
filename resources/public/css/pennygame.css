@@ -32,3 +32,18 @@ main {
   stroke: black;
   stroke-width: 2;
 }
+
+.shelf {
+  stroke: gray;
+}
+
+.penny-path {
+  fill: none;
+  stroke: pink;
+  stroke-dasharray: 5 1;
+}
+
+.penny {
+  fill: red;
+  stroke: black;
+}
