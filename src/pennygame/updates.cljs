@@ -1,22 +1,18 @@
 (ns pennygame.updates
-  (:require-macros [pennygame.macros :refer [spy]]))
+  (:require-macros [pennygame.macros :refer [spy]])
+  (:require [com.rpl.specter :as s]))
 
-(defn update-stations [f scenarios]
-  (map #(update % :stations (partial map f))
-       scenarios))
+(defn has-die? [k]
+  #(boolean (get % k)))
 
 (defn output [scenarios counts]
-  (update-stations
-    (fn [{i :output-die :as station}]
-      (if i
-        (update station :pennies (partial drop (counts i)))
-        station))
+  (s/transform [s/ALL :stations s/ALL (has-die? :output-die) (s/collect-one :output-die) :pennies]
+    (fn [i pennies]
+      (drop (counts i) pennies))
     scenarios))
 
 (defn input [scenarios counts]
-  (update-stations
-    (fn [{i :input-die :as station}]
-      (if i
-        (update station :pennies concat (range (counts i)))
-        station))
+  (s/transform [s/ALL :stations s/ALL (has-die? :input-die) (s/collect-one :input-die) :pennies]
+    (fn [i pennies]
+      (concat pennies (range (counts i))))
     scenarios))
