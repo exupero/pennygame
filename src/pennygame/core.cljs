@@ -16,7 +16,7 @@
         ds (fn [d y h]
              (assoc d
                :x x
-               :y (+ y h (- 0 (/ w 2) 40))
+               :y (+ y h (- 0 (/ w 2) sizes/penny))
                :width w
                :height w))]
     (update model :dice (partial map ds) ys hs)))
@@ -38,26 +38,26 @@
           {:value 0 :type :processing}
           {:value 0 :type :processing}]
    :scenarios [{:index 0
-                :stations [{:index 0 :type :supply}
-                           {:index 1 :type :processing :die 0 :pennies [{}]}
-                           {:index 2 :type :processing :die 1 :pennies []}
-                           {:index 3 :type :processing :die 2 :pennies []}
-                           {:index 4 :type :processing :die 3 :pennies []}
-                           {:index 5 :type :distribution :die 4}]}
+                :stations [{:id (gensym "station") :index 0 :type :supply}
+                           {:id (gensym "station") :index 1 :type :processing :die 0 :pennies (range 300)}
+                           {:id (gensym "station") :index 2 :type :processing :die 1 :pennies []}
+                           {:id (gensym "station") :index 3 :type :processing :die 2 :pennies []}
+                           {:id (gensym "station") :index 4 :type :processing :die 3 :pennies []}
+                           {:id (gensym "station") :index 5 :type :distribution :die 4}]}
                {:index 1
-                :stations [{:index 0 :type :supply}
-                           {:index 1 :type :processing :die 0 :pennies []}
-                           {:index 2 :type :processing :die 1 :pennies []}
-                           {:index 3 :type :processing :die 2 :pennies []}
-                           {:index 4 :type :processing :die 3 :pennies []}
-                           {:index 5 :type :distribution :die 4}]}
+                :stations [{:id (gensym "station") :index 0 :type :supply}
+                           {:id (gensym "station") :index 1 :type :processing :die 0 :pennies []}
+                           {:id (gensym "station") :index 2 :type :processing :die 1 :pennies []}
+                           {:id (gensym "station") :index 3 :type :processing :die 2 :pennies []}
+                           {:id (gensym "station") :index 4 :type :processing :die 3 :pennies []}
+                           {:id (gensym "station") :index 5 :type :distribution :die 4}]}
                {:index 2
-                :stations [{:index 0 :type :supply}
-                           {:index 1 :type :processing :die 0 :pennies []}
-                           {:index 2 :type :processing :die 1 :pennies []}
-                           {:index 3 :type :processing :die 2 :pennies []}
-                           {:index 4 :type :processing :die 3 :pennies []}
-                           {:index 5 :type :distribution :die 4}]}]})
+                :stations [{:id (gensym "station") :index 0 :type :supply}
+                           {:id (gensym "station") :index 1 :type :processing :die 0 :pennies []}
+                           {:id (gensym "station") :index 2 :type :processing :die 1 :pennies []}
+                           {:id (gensym "station") :index 3 :type :processing :die 2 :pennies []}
+                           {:id (gensym "station") :index 4 :type :processing :die 3 :pennies []}
+                           {:id (gensym "station") :index 5 :type :distribution :die 4}]}]})
 
 (defonce actions (chan))
 
@@ -69,11 +69,10 @@
 (go
   (<! (timeout 30))
   (let [size (juxt #(.-width %) #(.-height %))
-        [w h] (-> js/document
-                (.getElementById "space")
-                .getBoundingClientRect
-                size)]
-    (put! actions [:size w h])))
+        [w h] (-> js/document (.getElementById "space") .getBoundingClientRect size)]
+    (put! actions [:size w h]))
+  (<! (timeout 70))
+  (put! actions :no-op))
 
 (defn figwheel-reload []
   (put! actions :no-op))

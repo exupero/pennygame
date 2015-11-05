@@ -1,10 +1,23 @@
 (ns pennygame.ui
   (:require-macros [pennygame.macros :refer [spy]])
   (:require [cljs.core.async :refer [put!]]
+            [vdom.hooks :refer [hook]]
             [pennygame.sizes :as s]))
 
 (defn pair [[x y]]
   (str x "," y))
+
+(defn curve [[x0 y0] [x1 y1] [x2 y2]]
+  (let [u (let [m (- x0 x1)]
+            (/ m (.abs js/Math m)))
+        d (-> y1 (- y2) (/ 2) (* u))
+        d' (/ d 2)
+        a1 [(+ x1 d) y1]
+        a2 [(- x1 d') y1]
+        b2 [(- x2 d') y2]
+        b1 [(+ x2 d) y2]]
+    (str "L" (pair a1)
+         "C" (pair a2) "," (pair b2) "," (pair b1))))
 
 (defn path [pts]
   (when (seq pts)
@@ -15,6 +28,21 @@
 
 (defn closed-path [pts]
   (str (path pts) "Z"))
+
+(defn rounded-path [pts]
+  (let [[a & pts] pts]
+    (loop [s (str "M" (pair a))
+           prev a
+           [a b & tail] pts]
+      (cond
+        (and a b (seq tail))
+        (recur (str s (curve prev a b)) b tail)
+
+        a
+        (str s "L" (pair a))
+
+        :else
+        s))))
 
 (defn translate [x y]
   (str "translate(" x "," y ")"))
@@ -43,7 +71,7 @@
                    :cy (s y)
                    :r (/ w 10)}]))]))
 
-(defn penny-path [w h]
+(defn penny-path [id w h]
   (let [half (/ s/penny 2)
         left half
         right (- w half)]
@@ -56,8 +84,38 @@
                             [[left y] [right y]]))
                (not opens-left)
                (- y s/penny))
-        [:path {:class "penny-path"
-                :d (path ps)}]))))
+        [:path {:id id
+                :class "penny-path"
+                :d (rounded-path ps)}]))))
+
+(def xy (juxt #(.-x %) #(.-y %)))
+
+(defn penny-d [n spacing]
+  (-> spacing (* n) (+ s/penny)))
+
+(defn penny-xy [path i spacing]
+  (xy (.getPointAtLength path (penny-d i spacing))))
+
+(defn penny [[x y] _]
+  [:circle {:class "penny"
+            :cx x
+            :cy y
+            :r (- (/ s/penny 2) 2)}])
+
+(defn spacing [len c default]
+  (if (< (penny-d c default) len)
+    default
+    (/ len c)))
+
+(defn pennies [id w h ps]
+  (let [path (.getElementById js/document id)]
+    (list
+      (penny-path id w h)
+      (when path
+        (let [sp (spacing (.getTotalLength path)
+                          (count ps)
+                          (- s/penny 3.5))]
+          (reverse (map-indexed #(penny (penny-xy path %1 sp) %2) ps)))))))
 
 (defn shelves [w h]
   (loop [ss []
@@ -89,12 +147,6 @@
                              [entrance-left sp]
                              [entrance-left top]])}]))
 
-(defn penny [bottom {:keys [x y]}]
-  [:circle {:class "penny"
-            :cx x
-            :cy y
-            :r (- (/ s/penny 2) 2)}])
-
 (defmulti station :type)
 
 (defmethod station :supply [{w :width :keys [bin-h spout-y]}]
@@ -103,9 +155,9 @@
    (bin w bin-h)
    (spout spout-y w)])
 
-(defmethod station :processing [{w :width :keys [bin-h spout-y]}]
+(defmethod station :processing [{w :width ps :pennies :keys [id bin-h spout-y]}]
   [:g {:class "station"}
-   (penny-path w bin-h)
+   (pennies (str id "-penny-path") w bin-h ps)
    (shelves w bin-h)
    (bin w bin-h)
    (spout spout-y w)])
@@ -115,10 +167,11 @@
    (bin w bin-h)])
 
 (defn scenario [{:keys [x stations]}]
-  [:g {:class "scenario" :transform (translate x 0)}
-   (for [{:keys [y] :as s} stations]
-     [:g {:transform (translate 0 y)}
-      (station s)])])
+  (when x
+    [:g {:class "scenario" :transform (translate x 0)}
+     (for [{:keys [y] :as s} stations]
+       [:g {:transform (translate 0 y)}
+        (station s)])]))
 
 (defn ui [{:keys [dice scenarios]} actions]
   [:main {}
@@ -127,6 +180,7 @@
      "Roll"]
      [:svg {:id "space" :width "100%" :height "100%"}
       (for [{:keys [x y] :as d} dice]
-        [:g {:transform (translate x y)}
-         (die d)])
+        (when x
+          [:g {:transform (translate x y)}
+           (die d)]))
       (map scenario scenarios)] ])
