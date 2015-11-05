@@ -39,8 +39,7 @@ main {
 
 .penny-path {
   fill: none;
-  stroke: pink;
-  stroke-dasharray: 5 1;
+  stroke: none;
 }
 
 .penny {

@@ -5,6 +5,9 @@
             [cljs.core.match :refer-macros [match]]
             [vdom.elm :refer [foldp render!]]
             [pennygame.sizes :as sizes]
+            [pennygame.states :as states]
+            [pennygame.settings :as settings]
+            [pennygame.updates :as update]
             [pennygame.ui :as ui]))
 
 (enable-console-print!)
@@ -21,47 +24,29 @@
                :height w))]
     (update model :dice (partial map ds) ys hs)))
 
+(defonce actions (chan))
+
 (defn step [{:keys [scenarios] :as model} action]
   (match action
     :no-op model
-    [:size w h] (let [left 150]
-                  (-> model
-                    (assoc :width w :height h)
-                    (update :scenarios (partial sizes/scenarios {:x left :width (- w left) :height h}))
-                    (dice-positions {:x 45 :width (- left 90)})))
-    [:roll dice] (update model :dice (partial map #(assoc %1 :value %2)) dice)))
 
-(def initial-model
-  {:dice [{:value 0 :type :supply}
-          {:value 0 :type :processing}
-          {:value 0 :type :processing}
-          {:value 0 :type :processing}
-          {:value 0 :type :processing}]
-   :scenarios [{:index 0
-                :stations [{:id (gensym "station") :index 0 :type :supply}
-                           {:id (gensym "station") :index 1 :type :processing :die 0 :pennies (range 300)}
-                           {:id (gensym "station") :index 2 :type :processing :die 1 :pennies []}
-                           {:id (gensym "station") :index 3 :type :processing :die 2 :pennies []}
-                           {:id (gensym "station") :index 4 :type :processing :die 3 :pennies []}
-                           {:id (gensym "station") :index 5 :type :distribution :die 4}]}
-               {:index 1
-                :stations [{:id (gensym "station") :index 0 :type :supply}
-                           {:id (gensym "station") :index 1 :type :processing :die 0 :pennies []}
-                           {:id (gensym "station") :index 2 :type :processing :die 1 :pennies []}
-                           {:id (gensym "station") :index 3 :type :processing :die 2 :pennies []}
-                           {:id (gensym "station") :index 4 :type :processing :die 3 :pennies []}
-                           {:id (gensym "station") :index 5 :type :distribution :die 4}]}
-               {:index 2
-                :stations [{:id (gensym "station") :index 0 :type :supply}
-                           {:id (gensym "station") :index 1 :type :processing :die 0 :pennies []}
-                           {:id (gensym "station") :index 2 :type :processing :die 1 :pennies []}
-                           {:id (gensym "station") :index 3 :type :processing :die 2 :pennies []}
-                           {:id (gensym "station") :index 4 :type :processing :die 3 :pennies []}
-                           {:id (gensym "station") :index 5 :type :distribution :die 4}]}]})
+    [:size w h]
+    (let [left 150]
+      (-> model
+        (assoc :width w :height h)
+        (update :scenarios (partial sizes/scenarios {:x left :width (- w left) :height h}))
+        (dice-positions {:x 45 :width (- left 90)})))
 
-(defonce actions (chan))
+    [:roll dice]
+    (update model :dice (partial map #(assoc %1 :value %2)) dice)
 
-(defonce models (foldp step initial-model actions))
+    [:output counts]
+    (update model :scenarios update/output counts)
+
+    [:input counts]
+    (update model :scenarios update/input counts)))
+
+(defonce models (foldp step states/example actions))
 
 (defonce setup
   (render! (async/map #(ui/ui % actions) [models]) js/document.body))

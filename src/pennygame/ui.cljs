@@ -176,7 +176,7 @@
 (defn ui [{:keys [dice scenarios]} actions]
   [:main {}
    [:button {:style {:position :fixed :left 0 :top 0}
-              :onclick (fn [] (put! actions [:roll (repeatedly 5 #(->> (js/Math.random) (* 6) inc int))]))}
+              :onclick (fn [] (put! actions [:roll (vec (repeatedly 5 #(->> (js/Math.random) (* 6) inc int)))]))}
      "Roll"]
      [:svg {:id "space" :width "100%" :height "100%"}
       (for [{:keys [x y] :as d} dice]
