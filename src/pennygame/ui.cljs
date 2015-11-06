@@ -1,8 +1,9 @@
 (ns pennygame.ui
   (:require-macros [pennygame.macros :refer [spy]])
   (:require [cljs.core.async :refer [put!]]
-            [vdom.hooks :refer [hook]]
-            [pennygame.sizes :as s]))
+            [pennygame.sizes :as s]
+            [pennygame.dom :as dom]
+            [pennygame.geometry :as g]))
 
 (defn pair [[x y]]
   (str x "," y))
@@ -47,16 +48,6 @@
 (defn translate [x y]
   (str "translate(" x "," y ")"))
 
-(defn dots [n]
-  (condp = n
-    0 []
-    1 [[0 0]]
-    2 [[-1 -1] [1 1]]
-    3 [[-1 -1] [0 0] [1 1]]
-    4 [[-1 -1] [-1 1] [1 -1] [1 1]]
-    5 [[-1 -1] [-1 1] [0 0] [1 -1] [1 1]]
-    6 [[-1 -1] [-1 0] [-1 1] [1 -1] [1 0] [1 1]]))
-
 (defn die [{w :width h :height :keys [x y value]}]
   (let [half (/ w 2)]
     [:g {:transform (translate half half)}
@@ -66,12 +57,12 @@
              :width w
              :height w}]
      (let [s (partial * (/ w 4))]
-       (for [[x y] (dots value)]
+       (for [[x y] (g/dots value)]
          [:circle {:cx (s x)
                    :cy (s y)
                    :r (/ w 10)}]))]))
 
-(defn penny-path [id w h]
+(defn penny-path [w h]
   (let [half (/ s/penny 2)
         left half
         right (- w half)]
@@ -84,17 +75,11 @@
                             [[left y] [right y]]))
                (not opens-left)
                (- y s/penny))
-        [:path {:id id
-                :class "penny-path"
+        [:path {:class "penny-path"
                 :d (rounded-path ps)}]))))
 
-(def xy (juxt #(.-x %) #(.-y %)))
-
-(defn penny-d [n spacing]
-  (-> spacing (* n) (+ s/penny)))
-
 (defn penny-xy [path i spacing]
-  (xy (.getPointAtLength path (penny-d i spacing))))
+  (g/xy (.getPointAtLength path (g/penny-d i spacing))))
 
 (defn penny [[x y] _]
   [:circle {:class "penny"
@@ -102,20 +87,11 @@
             :cy y
             :r (- (/ s/penny 2) 2)}])
 
-(defn spacing [len c default]
-  (if (< (penny-d c default) len)
-    default
-    (/ len c)))
-
-(defn pennies [id w h ps]
-  (let [path (.getElementById js/document id)]
-    (list
-      (penny-path id w h)
-      (when path
-        (let [sp (spacing (.getTotalLength path)
-                          (count ps)
-                          (- s/penny 3.5))]
-          (reverse (map-indexed #(penny (penny-xy path %1 sp) %2) ps)))))))
+(defn pennies [w h {ps :pennies sp :spacing :keys [path]}]
+  (list
+    (penny-path w h)
+    (when path
+      (reverse (map-indexed #(penny (penny-xy path %1 sp) %2) ps)))))
 
 (defn shelves [w h]
   (loop [ss []
@@ -155,9 +131,12 @@
    (bin w bin-h)
    (spout spout-y w)])
 
-(defmethod station :processing [{w :width ps :pennies :keys [id bin-h spout-y]}]
+(defmethod station :processing [{w :width ps :pennies :keys [id bin-h spout-y penny-spacing]}]
   [:g {:class "station"}
-   (pennies (str id "-penny-path") w bin-h ps)
+   (pennies w bin-h
+     {:pennies ps
+      :spacing (- s/penny 3.5)
+      :path (dom/penny-path id)})
    (shelves w bin-h)
    (bin w bin-h)
    (spout spout-y w)])
@@ -169,8 +148,9 @@
 (defn scenario [{:keys [x stations]}]
   (when x
     [:g {:class "scenario" :transform (translate x 0)}
-     (for [{:keys [y] :as s} stations]
-       [:g {:transform (translate 0 y)}
+     (for [{:keys [id y] :as s} stations]
+       [:g {:id id
+            :transform (translate 0 y)}
         (station s)])]))
 
 (defn ui [{:keys [dice scenarios]} actions]

@@ -1,31 +1,47 @@
 (ns pennygame.states)
 
-(defn station [t & args]
+(defn die [& args]
+  (merge {:value 0
+          :type :processing}
+         (apply hash-map args)))
+
+(defn station [& args]
   (merge {:id (gensym "station")
-          :type t}
+          :type :processing
+          :pennies []
+          :processed []
+          :capacity nil
+          :productivity {:type :normal}}
+         (apply hash-map args)))
+
+(defn scenario [& args]
+  (merge {:stats-history []}
          (apply hash-map args)))
 
 (def example
-  {:dice [{:value 0 :type :supply}
-          {:value 0 :type :processing}
-          {:value 0 :type :processing}
-          {:value 0 :type :processing}
-          {:value 0 :type :processing}]
-   :scenarios [{:stations [(station :supply :output-die 0)
-                           (station :processing :input-die 0 :output-die 1 :pennies (vec (range 300)))
-                           (station :processing :input-die 1 :output-die 2 :pennies (vec (range 100)))
-                           (station :processing :input-die 2 :output-die 3 :pennies (vec (range 50)))
-                           (station :processing :input-die 3 :output-die 4 :pennies [])
-                           (station :distribution :input-die 4)]}
-               {:stations [(station :supply :output-die 0)
-                           (station :processing :input-die 0 :output-die 1 :pennies [])
-                           (station :processing :input-die 1 :output-die 2 :pennies [])
-                           (station :processing :input-die 2 :output-die 3 :pennies [])
-                           (station :processing :input-die 3 :output-die 4 :pennies [])
-                           (station :distribution :input-die 4)]}
-               {:stations [(station :supply :output-die 0)
-                           (station :processing :input-die 0 :output-die 1 :pennies [])
-                           (station :processing :input-die 1 :output-die 2 :pennies [])
-                           (station :processing :input-die 2 :output-die 3 :pennies [])
-                           (station :processing :input-die 3 :output-die 4 :pennies [])
-                           (station :distribution :input-die 4)]}]})
+  {:dice [(die :type :supply) (die) (die) (die) (die)]
+   :scenarios
+   [(scenario
+      :stations
+      [(station :type :supply :die 0 :pennies (range))
+       (station :supplier 0 :die 1)
+       (station :supplier 1 :die 2)
+       (station :supplier 2 :die 3)
+       (station :supplier 3 :die 4)
+       (station :type :distribution :supplier 4)])
+    (scenario
+      :stations
+      [(station :type :supply :die 0 :pennies (range) :productivity {:type :high})
+       (station :supplier 0 :die 1 :productivity {:type :high})
+       (station :supplier 1 :die 2 :productivity {:type :high})
+       (station :supplier 2 :die 3)
+       (station :supplier 3 :die 4 :productivity {:type :high})
+       (station :type :distribution :supplier 4)])
+    (scenario
+      :stations
+      [(station :type :supply :die 0 :pennies (range) :productivity {:type :constrained :by-station 3})
+       (station :supplier 0 :die 1 :productivity {:type :high})
+       (station :supplier 1 :die 2 :productivity {:type :high})
+       (station :supplier 2 :die 3)
+       (station :supplier 3 :die 4 :productivity {:type :high})
+       (station :type :distribution :supplier 4)])]})

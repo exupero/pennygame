@@ -6,8 +6,7 @@
             [vdom.elm :refer [foldp render!]]
             [pennygame.sizes :as sizes]
             [pennygame.states :as states]
-            [pennygame.settings :as settings]
-            [pennygame.updates :as update]
+            [pennygame.updates :as u]
             [pennygame.ui :as ui]))
 
 (enable-console-print!)
@@ -37,14 +36,25 @@
         (update :scenarios (partial sizes/scenarios {:x left :width (- w left) :height h}))
         (dice-positions {:x 45 :width (- left 90)})))
 
-    [:roll dice]
-    (update model :dice (partial map #(assoc %1 :value %2)) dice)
+    :set-lengths
+    (update model :scenarios u/lengths)
 
-    [:output counts]
-    (update model :scenarios update/output counts)
+    [:roll values]
+    (do
+      (put! actions :produce)
+      (update model :dice u/roll values))
 
-    [:input counts]
-    (update model :scenarios update/input counts)))
+    :produce
+    (do
+      (put! actions :hand-off)
+      (-> model
+        (update :scenarios u/determine-capacities (model :dice))
+        (update :scenarios u/transfer-to-processed)))
+
+    :hand-off
+    (-> model
+      (update :scenarios u/take-supplier-processed)
+      (update :scenarios u/stats-history))))
 
 (defonce models (foldp step states/example actions))
 
@@ -57,7 +67,7 @@
         [w h] (-> js/document (.getElementById "space") .getBoundingClientRect size)]
     (put! actions [:size w h]))
   (<! (timeout 70))
-  (put! actions :no-op))
+  (put! actions :set-lengths))
 
 (defn figwheel-reload []
   (put! actions :no-op))

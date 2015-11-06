@@ -33,7 +33,6 @@
                               :compiler {:output-to "resources/public/js/pennygame.js"
                                          :warnings true
                                          :elide-asserts true
-                                         :externs ["externs/vdom.js"]
                                          :optimizations :advanced
                                          :pretty-print false
                                          :output-wrapper false}}}}
