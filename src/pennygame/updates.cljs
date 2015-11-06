@@ -85,8 +85,13 @@
 
 (defn take-supplier-processed [model]
   (s/transform [:scenarios s/ALL :stations s/VAL s/ALL #(contains? % :supplier)]
-    (fn [stations {:keys [supplier pennies] :as station}]
-      (assoc station :pennies (concat pennies (get-in (vec stations) [supplier :processed]))))
+    (fn [stations {:keys [supplier] :as station}]
+      (assoc station :incoming (get-in (vec stations) [supplier :processed])))
+    model))
+
+(defn integrate-incoming [model]
+  (s/transform [:scenarios s/ALL :stations s/ALL (s/collect-one :incoming) :pennies]
+    #(concat %2 %1)
     model))
 
 (defn stats [scenario]

@@ -1,7 +1,6 @@
 (ns pennygame.ui
   (:require-macros [pennygame.macros :refer [spy]])
-  (:require [cljs.core.async :refer [put!]]
-            [pennygame.sizes :as s]
+  (:require [pennygame.sizes :as s]
             [pennygame.dom :as dom]
             [pennygame.geometry :as g]))
 
@@ -127,8 +126,6 @@
 
 (defmethod station :supply [{w :width :keys [bin-h spout-y]}]
   [:g {:class "supply"}
-   (shelves w bin-h)
-   (bin w bin-h)
    (spout spout-y w)])
 
 (defmethod station :processing [{w :width ps :pennies :keys [id bin-h spout-y penny-spacing]}]
@@ -142,8 +139,7 @@
    (spout spout-y w)])
 
 (defmethod station :distribution [{w :width :keys [bin-h]}]
-  [:g {:class "supply"}
-   (bin w bin-h)])
+  [:g {:class "supply"}])
 
 (defn scenario [{:keys [x stations]}]
   (when x
@@ -153,14 +149,15 @@
             :transform (translate 0 y)}
         (station s)])]))
 
-(defn ui [{:keys [dice scenarios]} actions]
+(defn ui [{:keys [step dice scenarios]} emit]
   [:main {}
-   [:button {:style {:position :fixed :left 0 :top 0}
-              :onclick (fn [] (put! actions [:roll (vec (repeatedly 5 #(->> (js/Math.random) (* 6) inc int)))]))}
-     "Roll"]
-     [:svg {:id "space" :width "100%" :height "100%"}
-      (for [{:keys [x y] :as d} dice]
-        (when x
-          [:g {:transform (translate x y)}
-           (die d)]))
-      (map scenario scenarios)] ])
+   [:div {:style {:position :fixed :left 0 :top 0}}
+    [:div {} step " steps"]
+    [:button {:onclick #(emit :roll)} "Roll"]
+    [:button {:onclick #(emit [:run 100])} "Run"]]
+   [:svg {:id "space" :width "100%" :height "100%"}
+    (for [{:keys [x y] :as d} dice]
+      (when x
+        [:g {:transform (translate x y)}
+         (die d)]))
+    (map scenario scenarios)] ])

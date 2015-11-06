@@ -27,10 +27,20 @@
 
 (defn run-step []
   (go
-    (>! actions :process)
-    (>! actions :transfer-ownership)
-    (>! actions :space)
+    (>! actions :determine-capacity)
+    (>! actions :intake)
+    (>! actions :transfer-to-processed)
+    (>! actions :transfer-to-next-station)
+    (>! actions :space-pennies)
+    (>! actions :drop-incoming)
+    (>! actions :integrate)
     (>! actions :update-stats)))
+
+(defn run-steps [steps]
+  (go
+    (doseq [i (range steps)]
+      (>! actions :roll)
+      (<! (timeout 250)))))
 
 (defn step [{:keys [scenarios] :as model} action]
   (match action
@@ -41,18 +51,28 @@
                     (update :scenarios (partial sizes/scenarios {:x left :width (- w left) :height h}))
                     (dice-positions {:x 45 :width (- left 90)})))
     :set-lengths (update model :scenarios u/lengths)
-    [:roll values] (do
-                     (run-step)
-                     (update model :dice u/roll values))
-    :process (-> model u/determine-capacities u/transfer-to-processed)
-    :transfer-ownership (u/take-supplier-processed model)
-    :space (u/spacing model)
+    [:run steps] (do (run-steps steps) model)
+    :roll (do
+            (run-step)
+            (-> model
+              (update :step inc)
+              (update :dice u/roll
+                (vec (repeatedly 5 #(->> (js/Math.random) (* 6) inc int))))))
+    :determine-capacity (u/determine-capacities model)
+    :intake model
+    :transfer-to-processed (u/transfer-to-processed model)
+    :transfer-to-next-station (u/take-supplier-processed model)
+    :space-pennies (u/spacing model)
+    :drop-incoming model
+    :integrate (u/integrate-incoming model)
     :update-stats (u/stats-history model)))
 
 (defonce models (foldp step states/example actions))
 
+(def emit #(put! actions %))
+
 (defonce setup
-  (render! (async/map #(ui/ui % actions) [models]) js/document.body))
+  (render! (async/map #(ui/ui % emit) [models]) js/document.body))
 
 (go
   (<! (timeout 30))

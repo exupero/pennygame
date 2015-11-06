@@ -8,6 +8,7 @@
 (defn station [& args]
   (merge {:id (gensym "station")
           :type :processing
+          :incoming []
           :pennies []
           :processed []
           :capacity nil
@@ -19,7 +20,8 @@
          (apply hash-map args)))
 
 (def example
-  {:dice [(die :type :supply) (die) (die) (die) (die)]
+  {:step 0
+   :dice [(die :type :supply) (die) (die) (die) (die)]
    :scenarios
    [(scenario
       :stations
