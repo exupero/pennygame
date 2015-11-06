@@ -141,11 +141,12 @@
 (defmethod station :distribution [{w :width :keys [bin-h]}]
   [:g {:class "supply"}])
 
-(defn scenario [{:keys [x stations]}]
+(defn scenario [{:keys [x color stations]}]
   (when x
-    [:g {:class "scenario" :transform (translate x 0)}
-     (for [{:keys [id y] :as s} stations]
+    [:g {:class (str "scenario " (name color)) :transform (translate x 0)}
+     (for [{{t :type} :productivity :keys [id y] :as s} stations]
        [:g {:id id
+            :class (str "productivity-" (name t))
             :transform (translate 0 y)}
         (station s)])]))
 

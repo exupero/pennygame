@@ -24,6 +24,7 @@
    :dice [(die :type :supply) (die) (die) (die) (die)]
    :scenarios
    [(scenario
+      :color :red
       :stations
       [(station :type :supply :die 0)
        (station :supplier 0 :die 1)
@@ -32,6 +33,7 @@
        (station :supplier 3 :die 4)
        (station :type :distribution :supplier 4)])
     (scenario
+      :color :green
       :stations
       [(station :type :supply :die 0 :productivity {:type :high})
        (station :supplier 0 :die 1 :productivity {:type :high})
@@ -40,6 +42,7 @@
        (station :supplier 3 :die 4 :productivity {:type :high})
        (station :type :distribution :supplier 4)])
     (scenario
+      :color :blue
       :stations
       [(station :type :supply :die 0 :productivity {:type :constrained :by-station 3})
        (station :supplier 0 :die 1 :productivity {:type :high})

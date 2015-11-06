@@ -33,6 +33,14 @@ main {
   stroke-width: 2;
 }
 
+.productivity-high .spout {
+  fill: lightgreen;
+}
+
+.productivity-constrained .spout {
+  fill: lightblue;
+}
+
 .shelf {
   stroke: gray;
 }
@@ -43,6 +51,17 @@ main {
 }
 
 .penny {
-  fill: red;
   stroke: black;
+}
+
+.scenario.red .penny {
+  fill: red;
+}
+
+.scenario.green .penny {
+  fill: limegreen;
+}
+
+.scenario.blue .penny {
+  fill: dodgerblue;
 }
