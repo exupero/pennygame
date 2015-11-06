@@ -135,7 +135,7 @@
   [:g {:class "station"}
    (pennies w bin-h
      {:pennies ps
-      :spacing (- s/penny 3.5)
+      :spacing penny-spacing
       :path (dom/penny-path id)})
    (shelves w bin-h)
    (bin w bin-h)

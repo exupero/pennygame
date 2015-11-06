@@ -23,7 +23,7 @@
    :scenarios
    [(scenario
       :stations
-      [(station :type :supply :die 0 :pennies (range))
+      [(station :type :supply :die 0)
        (station :supplier 0 :die 1)
        (station :supplier 1 :die 2)
        (station :supplier 2 :die 3)
@@ -31,7 +31,7 @@
        (station :type :distribution :supplier 4)])
     (scenario
       :stations
-      [(station :type :supply :die 0 :pennies (range) :productivity {:type :high})
+      [(station :type :supply :die 0 :productivity {:type :high})
        (station :supplier 0 :die 1 :productivity {:type :high})
        (station :supplier 1 :die 2 :productivity {:type :high})
        (station :supplier 2 :die 3)
@@ -39,7 +39,7 @@
        (station :type :distribution :supplier 4)])
     (scenario
       :stations
-      [(station :type :supply :die 0 :pennies (range) :productivity {:type :constrained :by-station 3})
+      [(station :type :supply :die 0 :productivity {:type :constrained :by-station 3})
        (station :supplier 0 :die 1 :productivity {:type :high})
        (station :supplier 1 :die 2 :productivity {:type :high})
        (station :supplier 2 :die 3)
