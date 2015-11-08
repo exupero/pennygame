@@ -12,7 +12,8 @@
           :pennies []
           :processed []
           :capacity nil
-          :productivity {:type :normal}}
+          :productivity {:type :normal}
+          :penny-spacing 999999}
          (apply hash-map args)))
 
 (defn scenario [& args]

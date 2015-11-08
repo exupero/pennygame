@@ -124,12 +124,13 @@
     (penny-path w h)
     (when-let [path (info :path)]
       (list
-        (map-indexed
-          (let [c (count ps)]
-            (fn [i _]
-              (let [[x y] (penny-xy path (+ c i) spacing)]
-                (incoming-penny i [x spout-y] [x y]))))
-          (info :dropping))
+        (reverse
+          (map-indexed
+            (let [c (count ps)]
+              (fn [i _]
+                (let [[x y] (penny-xy path (+ c i) spacing)]
+                  (incoming-penny i [x spout-y] [x y]))))
+            (info :dropping)))
         (reverse
           (map-indexed (fn [i _]
                          (penny i path spacing intaking))

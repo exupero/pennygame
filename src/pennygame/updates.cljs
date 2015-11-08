@@ -75,7 +75,7 @@
                        (+ (count incoming) (count pennies)))))
              (apply min (- sizes/penny 3.5)))]
     (s/transform [:scenarios s/ALL :stations s/ALL processing?]
-      #(assoc % :penny-spacing sp)
+      #(update % :penny-spacing min sp)
       model)))
 
 (defn take-supplier-processed [model]
