@@ -92,32 +92,14 @@
       :r (- (/ s/penny 2) 2)}
      (apply hash-map args))])
 
-(defn penny [i path spacing shift]
-  (let [pos #(penny-xy path % spacing)]
-    (penny-base (pos i)
-                :hookShift
-                (when (pos? shift)
-                  (a/transition
-                    (fn [el t]
-                      (let [spot (max -1 (- i (* t shift)))
-                            [x y] (pos spot)]
-                        (if (= -1 spot)
-                          (.setAttribute el "r" 0))
-                        (doto el
-                          (.setAttribute "cx" x)
-                          (.setAttribute "cy" y))))
-                    {:duration (@settings/timing :intake)})))))
-
-(defn incoming-penny [i [_ y0 :as start] [_ y1]]
-  (let [fall (- y1 y0)]
-    (penny-base start
-      :hookDrop
-      (a/transition
-        (fn [el t]
-          (.setAttribute el "cy" (+ y0 (* fall t))))
-        {:duration (@settings/timing :drop)
-         :delay (* i 25)
-         :easing a/ease-in}))))
+(defn penny
+  ([pos] (penny pos nil))
+  ([[x y] transition]
+   [:circle {:class "penny"
+             :cx x
+             :cy y
+             :r (- (/ s/penny 2) 2)
+             :hookTransition (when transition (hook transition))}]))
 
 (defn pennies [w h {ps :pennies :keys [spacing intaking spout-y] :as info}]
   (list
@@ -129,12 +111,30 @@
             (let [c (count ps)]
               (fn [i _]
                 (let [[x y] (penny-xy path (+ c i) spacing)]
-                  (incoming-penny i [x spout-y] [x y]))))
+                  (penny [x spout-y]
+                         (a/transition
+                           {:cy [spout-y y]}
+                           {:duration (@settings/timing :drop)
+                            :delay (* i 50)
+                            :easing a/ease-in})))))
             (info :dropping)))
         (reverse
-          (map-indexed (fn [i _]
-                         (penny i path spacing intaking))
-                       ps))))))
+          (map-indexed
+            (fn [i _]
+              (let [pos #(penny-xy path % spacing)]
+                (penny (pos i)
+                       (when (pos? intaking)
+                         (a/tween
+                           (fn [el t]
+                             (let [spot (max -1 (- i (* t intaking)))
+                                   [x y] (pos spot)]
+                               (if (= -1 spot)
+                                 (.setAttribute el "r" 0))
+                               (doto el
+                                 (.setAttribute "cx" x)
+                                 (.setAttribute "cy" y))))
+                           {:duration (@settings/timing :intake)})))))
+            ps))))))
 
 (defn shelves [w h]
   (loop [ss []
@@ -169,31 +169,49 @@
 (defmulti station :type)
 
 (defmethod station :supply [{w :width :keys [bin-h spout-y]}]
-  [:g {:class "supply"}
-   (spout spout-y w)])
+  (spout spout-y w))
 
 (defmethod station :processing [{w :width :keys [bin-h] :as s}]
-  [:g {:class "station"}
-   (shelves w bin-h)
-   (bin w bin-h)
-   (pennies w bin-h
-     {:pennies (s :pennies)
-      :spacing (s :penny-spacing)
-      :intaking (if (s :intaking?) (s :capacity) 0)
-      :dropping (when (s :dropping?) (s :incoming))
-      :path (dom/penny-path (s :id))
-      :spout-y (s :source-spout-y)})
-   (spout (s :spout-y) w)])
+  (list
+    (shelves w bin-h)
+    (bin w bin-h)
+    (pennies w bin-h
+      {:pennies (s :pennies)
+       :spacing (s :penny-spacing)
+       :intaking (if (s :intaking?) (s :capacity) 0)
+       :dropping (when (s :dropping?) (s :incoming))
+       :path (dom/penny-path (s :id))
+       :spout-y (s :source-spout-y)})
+    (spout (s :spout-y) w)))
 
-(defmethod station :distribution [{w :width :keys [bin-h]}]
-  [:g {:class "supply"}])
+(defmethod station :distribution [{w :width :keys [id bin-h source-spout-y] :as s}]
+  (list
+    (let [ramp (dom/ramp id)]
+      (when (and ramp (s :dropping?))
+        (reverse
+          (map-indexed
+            (fn [i p]
+              (penny [(/ s/penny 2) source-spout-y]
+                     (a/path ramp [:cx :cy]
+                       {:duration (@settings/timing :drop)
+                        :delay (* i 50)
+                        :easing a/ease-in})))
+            (s :incoming)))))
+    [:path {:class "ramp"
+            :d (str "M" (pair [(/ s/penny 2) source-spout-y])
+                    "C" (pair [(/ s/penny 2) (/ bin-h 2)])
+                    "," (pair [(/ s/penny 2) (/ bin-h 2)])
+                    "," (pair [(/ w 2) (/ bin-h 2)]))}]
+    [:image {:xlink:href "/images/truck.svg"
+             :width w
+             :height bin-h}]))
 
 (defn scenario [{:keys [x color stations]}]
   (when x
     [:g {:class (str "scenario " (name color)) :transform (translate x 0)}
      (for [{{t :type} :productivity :keys [id y] :as s} (reverse stations)]
        [:g {:id id
-            :class (str "productivity-" (name t))
+            :class (str (name t) " productivity-" (name t))
             :transform (translate 0 y)}
         (station s)])]))
 

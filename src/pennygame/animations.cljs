@@ -2,13 +2,13 @@
   (:require-macros [cljs.core.async.macros :refer [go]]
                    [pennygame.macros :refer [spy]])
   (:require [cljs.core.async :refer [<! timeout]]
-            [vdom.hooks :refer [hook]]))
+            [pennygame.geometry :as g]))
 
 (def queue (atom {}))
 
 (def fps 60)
 
-(defn push! [f]
+(defn enqueue! [f]
   (swap! queue assoc (gensym "animation") f))
 
 (defn remove! [id]
@@ -29,22 +29,49 @@
 (defn ease-in [x]
   (* x x))
 
-(defn transition
-  [f {wait :delay :keys [duration easing]
-      :or {wait 0 easing identity}}]
-  (hook
-    (fn [el]
-      (push! (fn [t]
-               (cond
-                 (<= t wait)
-                 true
+(defn tweener [el f {wait :delay :keys [duration easing]
+                     :or {wait 0 easing identity}}]
+  (fn [t]
+    (cond
+      (<= t wait)
+      true
 
-                 (< t (+ wait duration))
-                 (do
-                   (f el (easing (/ (- t wait) duration)))
-                   true)
+      (< t (+ wait duration))
+      (do
+        (f el (easing (/ (- t wait) duration)))
+        true)
 
-                 :else
-                 (do
-                   (f el 1)
-                   false)))))))
+      :else
+      (do
+        (f el 1)
+        false))))
+
+(defn tween [f opts]
+  (fn [el]
+    (enqueue! (tweener el f opts))))
+
+(defn transition [props opts]
+  (fn [el]
+    (let [ks (map name (keys props))
+          ts (zipmap
+               ks
+               (map (fn [[a b]]
+                      (let [d (- b a)]
+                        #(+ a (* d %))))
+                    (vals props)))
+          f (fn [_ t]
+              (doseq [[k df] (seq ts)]
+                (.setAttribute el k (df t))))]
+      (enqueue! (tweener el f opts)))))
+
+(defn path [p [xa ya] opts]
+  (fn [el]
+    (let [len (.getTotalLength p)
+          xa (name xa)
+          ya (name ya)
+          f (fn [_ t]
+              (let [[x y] (g/xy (.getPointAtLength p (* t len)))]
+                (doto el
+                  (.setAttribute xa x)
+                  (.setAttribute ya y))))]
+      (enqueue! (tweener el f opts)))))

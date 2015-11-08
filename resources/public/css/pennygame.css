@@ -37,6 +37,10 @@ button {
   stroke-width: 2;
 }
 
+.ramp {
+  fill: none;
+}
+
 .productivity-high .spout {
   fill: lightgreen;
 }
