@@ -29,18 +29,23 @@
 (defn station [pos s]
   (merge s pos))
 
+(defn bin-height [{t :type} h]
+  (let [bh (- h (bin-h- t))]
+    (- bh (mod bh penny))))
+
 (defn stations [{w :width h :height} ss]
-  (let [hs (heights h ss)
-        ys (reduce (partial stack +) [] (cons 0 hs))]
-    (map (fn [h y {t :type :as s}]
-           (let [h (let [bh (- h (bin-h- t))]
-                     (- bh (mod bh penny)))]
-             (station {:y (+ y (top-adjust t))
-                       :width w
-                       :bin-h h
-                       :spout-y h}
-                      s)))
-         hs ys ss)))
+  (let [hs (heights h ss)]
+    (map (fn [{t :type :as s} y h bh]
+           (station {:y (+ y (top-adjust t))
+                     :width w
+                     :bin-h bh
+                     :spout-y bh
+                     :source-spout-y (- (* 1.5 penny))}
+                    s))
+         ss
+         (reduce (partial stack +) [0] hs)
+         hs
+         (map bin-height ss hs))))
 
 (defn scenario [{w :width h :height :as pos} {ss :stations :as s}]
   (-> s

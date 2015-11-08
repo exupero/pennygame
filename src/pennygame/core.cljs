@@ -16,8 +16,6 @@
 
 (def initial-model states/example)
 
-(reset! settings/timing (initial-model :timing))
-
 (defn dice-positions [model {w :width :keys [x]}]
   (let [ss (->> model :scenarios first :stations (drop 1))
         hs (map :height ss)
@@ -33,29 +31,28 @@
 (defonce actions (chan))
 (def emit #(put! actions %))
 
-(defn run-step [animations? timing]
+(defn run-steps [n animations?]
   (go
+    (>! actions :roll)
     (>! actions :determine-capacity)
     (when animations?
       (>! actions [:intaking true])
-      (<! (timeout 0))
       (<! (animations/run))
       (>! actions [:intaking false]))
     (>! actions :transfer-to-processed)
     (>! actions :transfer-to-next-station)
-    (>! actions :space-pennies)
+    (>! actions :set-spacing)
     (when animations?
       (>! actions [:dropping true])
       (<! (animations/run))
       (>! actions [:dropping false]))
     (>! actions :integrate)
-    (>! actions :update-stats)))
-
-(defn run-steps [steps interval]
-  (go
-    (doseq [i (range steps)]
-      (>! actions :roll)
-      (<! (timeout interval)))))
+    (>! actions :update-stats)
+    (when-not animations?
+      (<! (timeout (@settings/timing :step))))
+    (let [n (dec n)]
+      (when (pos? n)
+        (>! actions [:run n animations?])))))
 
 (defn step [{:keys [scenarios] :as model} action]
   (match action
@@ -69,22 +66,20 @@
                                      (if-let [path (dom/penny-path id)]
                                        (assoc station :length (.getTotalLength path))
                                        station)))
-    [:animations v] (assoc model :animations? v)
-    [:run steps] (do
-                   (run-steps steps (get-in model [:timing :step]))
-                   model)
+    [:run n animations?] (do
+                           (run-steps n animations?)
+                           model)
     :roll (do
-            (run-step (model :animations?) (model :timing))
             (-> model
               (update :step inc)
               (update :dice u/roll
                 (vec (repeatedly 5 #(->> (js/Math.random) (* 6) inc int))))))
     :determine-capacity (u/determine-capacities model)
-    [:intaking v] (u/stations model assoc :intaking? v)
+    [:intaking v] (u/stations model #(assoc % :intaking? v))
     :transfer-to-processed (u/transfer-to-processed model)
     :transfer-to-next-station (u/take-supplier-processed model)
-    :space-pennies (u/spacing model)
-    [:dropping v] (u/stations model assoc :dropping? v)
+    :set-spacing (u/spacing model)
+    [:dropping v] (u/stations model #(assoc % :dropping? v))
     :integrate (u/integrate-incoming model)
     :update-stats (u/stats-history model)))
 

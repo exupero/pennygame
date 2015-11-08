@@ -20,10 +20,8 @@
 (defmethod capacity :constrained [roll {i :by-station} stations]
   (min roll (get-in (vec stations) [i :capacity])))
 
-(defn stations [model f & args]
-  (s/transform [:scenarios s/ALL :stations s/ALL]
-    #(apply f % args)
-    model))
+(defn stations [model f]
+  (s/transform [:scenarios s/ALL :stations s/ALL] f model))
 
 (defn roll [dice values]
   (vec (map #(assoc %1 :value %2) dice values)))
@@ -71,9 +69,10 @@
 
 (defn spacing [model]
   (let [sp (->> model
-             (s/select [:scenarios s/ALL :stations s/ALL processing? (comp pos? count :pennies)])
-             (map (juxt :length (comp count :pennies)))
-             (map (partial apply /))
+             (s/select [:scenarios s/ALL :stations s/ALL processing?])
+             (map (fn [{:keys [length incoming pennies]}]
+                    (/ length
+                       (+ (count incoming) (count pennies)))))
              (apply min (- sizes/penny 3.5)))]
     (s/transform [:scenarios s/ALL :stations s/ALL processing?]
       #(assoc % :penny-spacing sp)

@@ -1,5 +1,5 @@
 (ns pennygame.animations
-  (:require-macros [cljs.core.async.macros :refer [go-loop]]
+  (:require-macros [cljs.core.async.macros :refer [go]]
                    [pennygame.macros :refer [spy]])
   (:require [cljs.core.async :refer [<! timeout]]
             [vdom.hooks :refer [hook]]))
@@ -16,25 +16,35 @@
 
 (defn run []
   (let [dt (/ 1000 fps)]
-    (go-loop [t 0]
-      (when (seq @queue)
-        (doseq [[id f] @queue]
-          (when-not (f t)
-            (remove! id)))
-        (<! (timeout dt))
-        (recur (+ t dt))))))
+    (go
+      (<! (timeout 0))
+      (loop [t 0]
+        (when (seq @queue)
+          (doseq [[id f] @queue]
+            (when-not (f t)
+              (remove! id)))
+          (<! (timeout dt))
+          (recur (+ t dt)))))))
 
-(def linear identity)
+(defn ease-in [x]
+  (* x x))
 
 (defn transition
-  ([f duration] (transition f duration linear))
-  ([f duration easing]
-   (hook (fn [el]
-           (push! (fn [t]
-                    (if (< t duration)
-                      (do
-                        (f el (easing (/ t duration)))
-                        true)
-                      (do
-                        (f el 1)
-                        false))))))))
+  [f {wait :delay :keys [duration easing]
+      :or {wait 0 easing identity}}]
+  (hook
+    (fn [el]
+      (push! (fn [t]
+               (cond
+                 (<= t wait)
+                 true
+
+                 (< t (+ wait duration))
+                 (do
+                   (f el (easing (/ (- t wait) duration)))
+                   true)
+
+                 :else
+                 (do
+                   (f el 1)
+                   false)))))))

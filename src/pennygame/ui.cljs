@@ -83,30 +83,57 @@
 (defn penny-xy [path i spacing]
   (g/xy (.getPointAtLength path (g/penny-d i spacing))))
 
-(defn penny [i pos shift]
-  (let [[x y] (pos i)]
-    [:circle {:class "penny"
-              :cx x
-              :cy y
-              :r (- (/ s/penny 2) 2)
-              :hookShift (when (pos? shift)
-                           (a/transition
-                             (fn [el t]
-                               (let [[x y] (pos (max -1 (- i (* t (inc shift)))))]
-                                 (doto el
-                                   (.setAttribute "cx" x)
-                                   (.setAttribute "cy" y))))
-                             (@settings/timing :intake)))}]))
+(defn penny-base [[x y] & args]
+  [:circle
+   (merge
+     {:class "penny"
+      :cx x
+      :cy y
+      :r (- (/ s/penny 2) 2)}
+     (apply hash-map args))])
 
-(defn pennies [w h {:keys [spacing intaking] :as info}]
+(defn penny [i path spacing shift]
+  (let [pos #(penny-xy path % spacing)]
+    (penny-base (pos i)
+                :hookShift
+                (when (pos? shift)
+                  (a/transition
+                    (fn [el t]
+                      (let [spot (max -1 (- i (* t shift)))
+                            [x y] (pos spot)]
+                        (if (= -1 spot)
+                          (.setAttribute el "r" 0))
+                        (doto el
+                          (.setAttribute "cx" x)
+                          (.setAttribute "cy" y))))
+                    {:duration (@settings/timing :intake)})))))
+
+(defn incoming-penny [i [_ y0 :as start] [_ y1]]
+  (let [fall (- y1 y0)]
+    (penny-base start
+      :hookDrop
+      (a/transition
+        (fn [el t]
+          (.setAttribute el "cy" (+ y0 (* fall t))))
+        {:duration (@settings/timing :drop)
+         :delay (* i 25)
+         :easing a/ease-in}))))
+
+(defn pennies [w h {ps :pennies :keys [spacing intaking spout-y] :as info}]
   (list
     (penny-path w h)
     (when-let [path (info :path)]
-      (->> info
-        :pennies
-        (map-indexed (fn [i p]
-                       (penny i #(penny-xy path % spacing) intaking)))
-        reverse))))
+      (list
+        (map-indexed
+          (let [c (count ps)]
+            (fn [i _]
+              (let [[x y] (penny-xy path (+ c i) spacing)]
+                (incoming-penny i [x spout-y] [x y]))))
+          (info :dropping))
+        (reverse
+          (map-indexed (fn [i _]
+                         (penny i path spacing intaking))
+                       ps))))))
 
 (defn shelves [w h]
   (loop [ss []
@@ -146,14 +173,15 @@
 
 (defmethod station :processing [{w :width :keys [bin-h] :as s}]
   [:g {:class "station"}
+   (shelves w bin-h)
+   (bin w bin-h)
    (pennies w bin-h
      {:pennies (s :pennies)
       :spacing (s :penny-spacing)
       :intaking (if (s :intaking?) (s :capacity) 0)
-      :dropping (if (s :dropping?) (s :incoming) 0)
-      :path (dom/penny-path (s :id))})
-   (shelves w bin-h)
-   (bin w bin-h)
+      :dropping (when (s :dropping?) (s :incoming))
+      :path (dom/penny-path (s :id))
+      :spout-y (s :source-spout-y)})
    (spout (s :spout-y) w)])
 
 (defmethod station :distribution [{w :width :keys [bin-h]}]
@@ -162,7 +190,7 @@
 (defn scenario [{:keys [x color stations]}]
   (when x
     [:g {:class (str "scenario " (name color)) :transform (translate x 0)}
-     (for [{{t :type} :productivity :keys [id y] :as s} stations]
+     (for [{{t :type} :productivity :keys [id y] :as s} (reverse stations)]
        [:g {:id id
             :class (str "productivity-" (name t))
             :transform (translate 0 y)}
@@ -172,8 +200,9 @@
   [:main {}
    [:div {:style {:position :fixed :left 0 :top 0}}
     [:div {} step " steps"]
-    [:button {:onclick #(emit :roll)} "Roll"]
-    [:button {:onclick #(emit [:run 100])} "Run"]]
+    [:button {:onclick #(emit [:run 1 true])} "Roll"]
+    [:button {:onclick #(emit [:run 100 true])} "Run"]
+    [:button {:onclick #(emit [:run 100 false])} "Run Fast"]]
    [:svg {:id "space" :width "100%" :height "100%"}
     (for [{:keys [x y] :as d} dice]
       (when x
