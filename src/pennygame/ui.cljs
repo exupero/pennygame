@@ -1,8 +1,11 @@
 (ns pennygame.ui
   (:require-macros [pennygame.macros :refer [spy]])
-  (:require [pennygame.sizes :as s]
+  (:require [vdom.hooks :refer [hook]]
+            [pennygame.settings :as settings]
+            [pennygame.sizes :as s]
             [pennygame.dom :as dom]
-            [pennygame.geometry :as g]))
+            [pennygame.geometry :as g]
+            [pennygame.animations :as a]))
 
 (defn pair [[x y]]
   (str x "," y))
@@ -80,17 +83,30 @@
 (defn penny-xy [path i spacing]
   (g/xy (.getPointAtLength path (g/penny-d i spacing))))
 
-(defn penny [[x y] _]
-  [:circle {:class "penny"
-            :cx x
-            :cy y
-            :r (- (/ s/penny 2) 2)}])
+(defn penny [i pos shift]
+  (let [[x y] (pos i)]
+    [:circle {:class "penny"
+              :cx x
+              :cy y
+              :r (- (/ s/penny 2) 2)
+              :hookShift (when (pos? shift)
+                           (a/transition
+                             (fn [el t]
+                               (let [[x y] (pos (max -1 (- i (* t (inc shift)))))]
+                                 (doto el
+                                   (.setAttribute "cx" x)
+                                   (.setAttribute "cy" y))))
+                             (@settings/timing :intake)))}]))
 
-(defn pennies [w h {ps :pennies sp :spacing :keys [path]}]
+(defn pennies [w h {:keys [spacing intaking] :as info}]
   (list
     (penny-path w h)
-    (when path
-      (reverse (map-indexed #(penny (penny-xy path %1 sp) %2) ps)))))
+    (when-let [path (info :path)]
+      (->> info
+        :pennies
+        (map-indexed (fn [i p]
+                       (penny i #(penny-xy path % spacing) intaking)))
+        reverse))))
 
 (defn shelves [w h]
   (loop [ss []
@@ -128,15 +144,17 @@
   [:g {:class "supply"}
    (spout spout-y w)])
 
-(defmethod station :processing [{w :width ps :pennies :keys [id bin-h spout-y penny-spacing]}]
+(defmethod station :processing [{w :width :keys [bin-h] :as s}]
   [:g {:class "station"}
    (pennies w bin-h
-     {:pennies ps
-      :spacing penny-spacing
-      :path (dom/penny-path id)})
+     {:pennies (s :pennies)
+      :spacing (s :penny-spacing)
+      :intaking (if (s :intaking?) (s :capacity) 0)
+      :dropping (if (s :dropping?) (s :incoming) 0)
+      :path (dom/penny-path (s :id))})
    (shelves w bin-h)
    (bin w bin-h)
-   (spout spout-y w)])
+   (spout (s :spout-y) w)])
 
 (defmethod station :distribution [{w :width :keys [bin-h]}]
   [:g {:class "supply"}])

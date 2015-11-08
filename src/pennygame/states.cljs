@@ -20,7 +20,11 @@
          (apply hash-map args)))
 
 (def example
-  {:step 0
+  {:animations? true
+   :timing {:step 1000
+            :intake 333
+            :drop 333}
+   :step 0
    :dice [(die :type :supply) (die) (die) (die) (die)]
    :scenarios
    [(scenario

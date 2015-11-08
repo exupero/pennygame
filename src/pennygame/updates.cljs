@@ -1,8 +1,7 @@
 (ns pennygame.updates
   (:require-macros [pennygame.macros :refer [spy]])
   (:require [com.rpl.specter :as s]
-            [pennygame.sizes :as sizes]
-            [pennygame.dom :as dom]))
+            [pennygame.sizes :as sizes]))
 
 (defmulti capacity (fn [_ {t :type} _] t))
 
@@ -21,13 +20,10 @@
 (defmethod capacity :constrained [roll {i :by-station} stations]
   (min roll (get-in (vec stations) [i :capacity])))
 
-(defn lengths [scenarios]
-  (s/transform [s/ALL :stations s/ALL]
-    (fn [{:keys [id] :as station}]
-      (if-let [path (dom/penny-path id)]
-        (assoc station :length (.getTotalLength path))
-        station))
-    scenarios))
+(defn stations [model f & args]
+  (s/transform [:scenarios s/ALL :stations s/ALL]
+    #(apply f % args)
+    model))
 
 (defn roll [dice values]
   (vec (map #(assoc %1 :value %2) dice values)))

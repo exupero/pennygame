@@ -4,12 +4,19 @@
   (:require [cljs.core.async :as async :refer [chan >! <! put! timeout]]
             [cljs.core.match :refer-macros [match]]
             [vdom.elm :refer [foldp render!]]
+            [pennygame.animations :as animations]
+            [pennygame.dom :as dom]
             [pennygame.sizes :as sizes]
             [pennygame.states :as states]
+            [pennygame.settings :as settings]
             [pennygame.updates :as u]
             [pennygame.ui :as ui]))
 
 (enable-console-print!)
+
+(def initial-model states/example)
+
+(reset! settings/timing (initial-model :timing))
 
 (defn dice-positions [model {w :width :keys [x]}]
   (let [ss (->> model :scenarios first :stations (drop 1))
@@ -24,23 +31,31 @@
     (update model :dice (partial map ds) ys hs)))
 
 (defonce actions (chan))
+(def emit #(put! actions %))
 
-(defn run-step []
+(defn run-step [animations? timing]
   (go
     (>! actions :determine-capacity)
-    (>! actions :intake)
+    (when animations?
+      (>! actions [:intaking true])
+      (<! (timeout 0))
+      (<! (animations/run))
+      (>! actions [:intaking false]))
     (>! actions :transfer-to-processed)
     (>! actions :transfer-to-next-station)
     (>! actions :space-pennies)
-    (>! actions :drop-incoming)
+    (when animations?
+      (>! actions [:dropping true])
+      (<! (animations/run))
+      (>! actions [:dropping false]))
     (>! actions :integrate)
     (>! actions :update-stats)))
 
-(defn run-steps [steps]
+(defn run-steps [steps interval]
   (go
     (doseq [i (range steps)]
       (>! actions :roll)
-      (<! (timeout 250)))))
+      (<! (timeout interval)))))
 
 (defn step [{:keys [scenarios] :as model} action]
   (match action
@@ -50,36 +65,38 @@
                     (assoc :width w :height h)
                     (update :scenarios (partial sizes/scenarios {:x left :width (- w left) :height h}))
                     (dice-positions {:x 45 :width (- left 90)})))
-    :set-lengths (update model :scenarios u/lengths)
-    [:run steps] (do (run-steps steps) model)
+    :set-lengths (u/stations model (fn [{:keys [id] :as station}]
+                                     (if-let [path (dom/penny-path id)]
+                                       (assoc station :length (.getTotalLength path))
+                                       station)))
+    [:animations v] (assoc model :animations? v)
+    [:run steps] (do
+                   (run-steps steps (get-in model [:timing :step]))
+                   model)
     :roll (do
-            (run-step)
+            (run-step (model :animations?) (model :timing))
             (-> model
               (update :step inc)
               (update :dice u/roll
                 (vec (repeatedly 5 #(->> (js/Math.random) (* 6) inc int))))))
     :determine-capacity (u/determine-capacities model)
-    :intake model
+    [:intaking v] (u/stations model assoc :intaking? v)
     :transfer-to-processed (u/transfer-to-processed model)
     :transfer-to-next-station (u/take-supplier-processed model)
     :space-pennies (u/spacing model)
-    :drop-incoming model
+    [:dropping v] (u/stations model assoc :dropping? v)
     :integrate (u/integrate-incoming model)
     :update-stats (u/stats-history model)))
 
-(defonce models (foldp step states/example actions))
-
-(def emit #(put! actions %))
-
-(defonce setup
-  (render! (async/map #(ui/ui % emit) [models]) js/document.body))
+(defonce models (foldp step initial-model actions))
+(defonce setup (render! (async/map #(ui/ui % emit) [models]) js/document.body))
 
 (go
   (<! (timeout 30))
   (let [size (juxt #(.-width %) #(.-height %))
         [w h] (-> js/document (.getElementById "space") .getBoundingClientRect size)]
     (put! actions [:size w h]))
-  (<! (timeout 70))
+  (<! (timeout 100))
   (put! actions :set-lengths))
 
 (defn figwheel-reload []
