@@ -1,6 +1,7 @@
 (ns pennygame.ui
   (:require-macros [pennygame.macros :refer [spy]])
   (:require [vdom.hooks :refer [hook]]
+            [com.rpl.specter :as sp]
             [pennygame.settings :as settings]
             [pennygame.sizes :as s]
             [pennygame.dom :as dom]
@@ -215,16 +216,77 @@
             :transform (translate 0 y)}
         (station s)])]))
 
-(defn ui [{:keys [step dice scenarios]} emit]
+(defn graph [{w :width h :height :keys [x y]}
+             scenarios
+             {f :accessor rng :range :keys [title]}]
+  [:g {:class "graph"
+       :transform (translate x y)}
+   [:rect {:width w :height h}]
+   [:text {:class "title"
+           :x (/ w 2)
+           :y (/ h 2)
+           :dy 10}
+    title]
+   (let [x 30
+         h (- h (* 2 x))]
+     [:g {:transform (translate x x)}
+      (let [stats (for [{:keys [color stats-history]} scenarios]
+                    {:color color
+                     :data (map-indexed (fn [i stats]
+                                          :stats [i (f stats)])
+                                        stats-history)})
+            data (mapcat :data stats)
+            x (g/linear (g/extent (map first data))
+                        [0 (- w (* 2 x))])
+            y (g/linear (or rng (g/extent (map second data)))
+                        [h 0])
+            coord (fn [[i j]]
+                    [(x i) (y j)])
+            stats (sp/transform [sp/ALL :data] #(map coord %) stats)]
+        (list
+          (for [{:keys [color data]} stats]
+            [:path {:class (str "history stroke")
+                    :d (path data)}])
+          (for [{:keys [color data]} stats]
+            [:path {:class (str "history " (name color))
+                    :d (path data)}])))
+      [:line {:class "axis"
+              :transform (translate 0 h)
+              :x2 (- w (* 2 x))}]
+      [:line {:class "axis"
+              :y2 h}]])])
+
+(defn graphs [dim scenarios]
+  (let [[one two three four] (g/cells dim 4)]
+    [:g {:id "graphs"}
+     (graph one scenarios
+            {:title "Total Input"
+             :accessor :total-input})
+     (graph two scenarios
+            {:title "Total Output"
+             :accessor :total-output})
+     (graph three scenarios
+            {:title "Work in Progress"
+             :accessor :wip})
+     (graph four scenarios
+            {:title "Utilization"
+             :accessor (comp (partial apply /) :total-utilization)
+             :range [0 1]})]))
+
+(defn ui [{:keys [width height step dice scenarios graphs?]} emit]
   [:main {}
    [:div {:style {:position :fixed :left 0 :top 0}}
     [:div {} step " steps"]
     [:button {:onclick #(emit [:run 1 true])} "Roll"]
     [:button {:onclick #(emit [:run 100 true])} "Run"]
-    [:button {:onclick #(emit [:run 100 false])} "Run Fast"]]
+    [:button {:onclick #(emit [:run 100 false])} "Run Fast"]
+    [:button {:onclick #(emit [:graphs (not graphs?)])}
+     (if graphs? "Hide graphs" "Show graphs")]]
    [:svg {:id "space" :width "100%" :height "100%"}
     (for [{:keys [x y] :as d} dice]
       (when x
         [:g {:transform (translate x y)}
          (die d)]))
-    (map scenario scenarios)] ])
+    (map scenario scenarios)
+    (when (and width height graphs?)
+      (graphs [width height] scenarios))]])

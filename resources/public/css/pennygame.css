@@ -11,6 +11,10 @@ button {
   display: block;
 }
 
+text {
+  font-family: 'Helvetica Neue', Arial, sans-serif;
+}
+
 .die {
   stroke: black;
   stroke-width: 1;
@@ -58,18 +62,43 @@ button {
   stroke: none;
 }
 
+.graph rect {
+  fill: white;
+  opacity: 0.95;
+}
+
+.graph text {
+  text-anchor: middle;
+}
+
+.graph text.title {
+  font-size: 50pt;
+  fill: lightgray;
+}
+
+.graph .axis {
+  stroke: gray;
+  stroke-width: 2;
+}
+
 .penny {
   stroke: black;
 }
 
-.scenario.red .penny {
-  fill: red;
+.scenario.red .penny { fill: red; }
+.scenario.green .penny { fill: limegreen; }
+.scenario.blue .penny { fill: dodgerblue; }
+
+.history {
+  fill: none;
+  stroke-width: 2;
 }
 
-.scenario.green .penny {
-  fill: limegreen;
+.history.stroke {
+  stroke: white;
+  stroke-width: 4;
 }
 
-.scenario.blue .penny {
-  fill: dodgerblue;
-}
+.history.red { stroke: red; }
+.history.green { stroke: green; }
+.history.blue { stroke: blue; }

@@ -81,7 +81,8 @@
     :set-spacing (u/spacing model)
     [:dropping v] (u/stations model #(assoc % :dropping? v))
     :integrate (u/integrate-incoming model)
-    :update-stats (u/stats-history model)))
+    :update-stats (u/stats-history model)
+    [:graphs v] (assoc model :graphs? v)))
 
 (defonce models (foldp step initial-model actions))
 (defonce setup (render! (async/map #(ui/ui % emit) [models]) js/document.body))

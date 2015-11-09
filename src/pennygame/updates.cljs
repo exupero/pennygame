@@ -18,7 +18,7 @@
     6 6))
 
 (defmethod capacity :constrained [roll {i :by-station} stations]
-  (min roll (get-in (vec stations) [i :capacity])))
+  (get-in (vec stations) [i :capacity]))
 
 (defn stations [model f]
   (s/transform [:scenarios s/ALL :stations s/ALL] f model))
@@ -89,19 +89,26 @@
     #(concat %2 %1)
     model))
 
-(defn stats [scenario]
-  {:input (-> scenario :stations first :processed count)
-   :wip (->> scenario
-          (s/select [:stations s/ALL processing? :pennies])
-          (map count)
-          (reduce +))
-   :utilization (->> scenario
-                  (s/select [:stations s/ALL processing?])
-                  (map (juxt (comp count :processed) :capacity))
-                  (apply map +))
-   :throughput (-> scenario :stations butlast last :processed count)})
+(defn stats [scenario {:keys [total-input total-utilization total-output]
+                       :or {total-utilization [0 0]}}]
+  (let [input (-> scenario :stations first :processed count)
+        utilization (->> scenario
+                      (s/select [:stations s/ALL processing?])
+                      (map (juxt (comp count :processed) :capacity))
+                      (apply map +))
+        output (-> scenario :stations butlast last :processed count)]
+    {:input input
+     :wip (->> scenario
+            (s/select [:stations s/ALL processing? :pennies])
+            (map count)
+            (reduce +))
+     :utilization utilization
+     :output output
+     :total-input (+ total-input input)
+     :total-utilization (map + total-utilization utilization)
+     :total-output (+ total-output output)}))
 
 (defn stats-history [model]
   (s/transform [:scenarios s/ALL s/VAL :stats-history]
-    #(conj %2 (stats %1))
+    #(conj %2 (stats %1 (peek %2)))
     model))
