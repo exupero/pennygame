@@ -6,7 +6,7 @@
 
 (def queue (atom {}))
 
-(def fps 60)
+(def fps 30)
 
 (defn enqueue! [f]
   (swap! queue assoc (gensym "animation") f))
