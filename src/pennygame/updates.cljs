@@ -89,17 +89,17 @@
     #(concat %2 %1)
     model))
 
-(defn stats [scenario {:keys [total-input total-utilization total-output]
+(defn stats [{:keys [stations]} {:keys [total-input total-utilization total-output]
                        :or {total-utilization [0 0]}}]
-  (let [input (-> scenario :stations first :processed count)
-        utilization (->> scenario
-                      (s/select [:stations s/ALL processing?])
+  (let [input (-> stations first :processed count)
+        utilization (->> stations
+                      (s/select [s/ALL processing?])
                       (map (juxt (comp count :processed) :capacity))
                       (apply map +))
-        output (-> scenario :stations butlast last :processed count)]
+        output (-> stations butlast last :processed count)]
     {:input input
-     :wip (->> scenario
-            (s/select [:stations s/ALL processing? :pennies])
+     :wip (->> stations
+            (s/select [s/ALL processing? :pennies])
             (map count)
             (reduce +))
      :utilization utilization

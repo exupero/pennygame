@@ -1,7 +1,7 @@
 (ns pennygame.core
   (:require-macros [cljs.core.async.macros :refer [go]]
                    [pennygame.macros :refer [spy]])
-  (:require [cljs.core.async :as async :refer [chan >! <! put! timeout]]
+  (:require [cljs.core.async :as async :refer [chan >! <! put! timeout alts!]]
             [cljs.core.match :refer-macros [match]]
             [vdom.elm :refer [foldp render!]]
             [pennygame.animations :as animations]
@@ -14,10 +14,10 @@
 
 (enable-console-print!)
 
-(def initial-model states/example)
+(def initial-model (states/setups :basic))
 
 (defn dice-positions [model {w :width :keys [x]}]
-  (let [ss (->> model :scenarios first :stations (drop 1))
+  (let [ss (->> model :scenarios (filter :color) first :stations (drop 1))
         hs (map :height ss)
         ys (map :y ss)
         ds (fn [d y h]
@@ -30,29 +30,41 @@
 
 (defonce actions (chan))
 (def emit #(put! actions %))
+(defonce stop (atom (chan)))
 
 (defn run-steps [n animations?]
   (go
-    (>! actions :roll)
-    (>! actions :determine-capacity)
-    (when animations?
-      (>! actions [:intaking true])
-      (<! (animations/run))
-      (>! actions [:intaking false]))
-    (>! actions :transfer-to-processed)
-    (>! actions :transfer-to-next-station)
-    (>! actions :set-spacing)
-    (when animations?
-      (>! actions [:dropping true])
-      (<! (animations/run))
-      (>! actions [:dropping false]))
-    (>! actions :integrate)
-    (>! actions :update-stats)
-    (when-not animations?
-      (<! (timeout (@settings/timing :step))))
-    (let [n (dec n)]
-      (when (pos? n)
-        (>! actions [:run n animations?])))))
+    (let [[_ ch] (alts! [@stop] :default nil)]
+      (when (= :default ch)
+        (>! actions :roll)
+        (>! actions :determine-capacity)
+        (when animations?
+          (>! actions [:intaking true])
+          (<! (animations/run))
+          (>! actions [:intaking false]))
+        (>! actions :transfer-to-processed)
+        (>! actions :transfer-to-next-station)
+        (>! actions :set-spacing)
+        (when animations?
+          (>! actions [:dropping true])
+          (<! (animations/run))
+          (>! actions [:dropping false]))
+        (>! actions :integrate)
+        (>! actions :update-stats)
+        (when-not animations?
+          (<! (timeout (@settings/timing :step))))
+        (let [n (dec n)]
+          (when (pos? n)
+            (>! actions [:run n animations?])))))))
+
+(defn initialize-setup []
+  (go
+    (<! (timeout 30))
+    (let [size (juxt #(.-width %) #(.-height %))
+          [w h] (-> js/document (.getElementById "space") .getBoundingClientRect size)]
+      (put! actions [:size w h]))
+    (<! (timeout 100))
+    (put! actions :set-lengths)))
 
 (defn step [{:keys [scenarios] :as model} action]
   (match action
@@ -66,6 +78,11 @@
                                      (if-let [path (dom/penny-path id)]
                                        (assoc station :length (.getTotalLength path))
                                        station)))
+    [:set-up s] (do
+                  (put! @stop true)
+                  (reset! stop (chan))
+                  (initialize-setup)
+                  (states/setups s))
     [:run n animations?] (do
                            (run-steps n animations?)
                            model)
@@ -87,13 +104,7 @@
 (defonce models (foldp step initial-model actions))
 (defonce setup (render! (async/map #(ui/ui % emit) [models]) js/document.body))
 
-(go
-  (<! (timeout 30))
-  (let [size (juxt #(.-width %) #(.-height %))
-        [w h] (-> js/document (.getElementById "space") .getBoundingClientRect size)]
-    (put! actions [:size w h]))
-  (<! (timeout 100))
-  (put! actions :set-lengths))
+(initialize-setup)
 
 (defn figwheel-reload []
   (put! actions :no-op))

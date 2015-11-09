@@ -100,5 +100,5 @@ text {
 }
 
 .history.red { stroke: red; }
-.history.green { stroke: green; }
-.history.blue { stroke: blue; }
+.history.green { stroke: limegreen; }
+.history.blue { stroke: dodgerblue; }

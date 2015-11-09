@@ -208,7 +208,7 @@
              :height bin-h}]))
 
 (defn scenario [{:keys [x color stations]}]
-  (when x
+  (when (and x color)
     [:g {:class (str "scenario " (name color)) :transform (translate x 0)}
      (for [{{t :type} :productivity :keys [id y] :as s} (reverse stations)]
        [:g {:id id
@@ -230,11 +230,12 @@
    (let [x 30
          h (- h (* 2 x))]
      [:g {:transform (translate x x)}
-      (let [stats (for [{:keys [color stats-history]} scenarios]
-                    {:color color
-                     :data (map-indexed (fn [i stats]
-                                          :stats [i (f stats)])
-                                        stats-history)})
+      (let [stats (doall (for [{:keys [color stats-history]} scenarios
+                               :when color]
+                         {:color color
+                          :data (map-indexed (fn [i stats]
+                                               [i (f stats)])
+                                             stats-history)}))
             data (mapcat :data stats)
             x (g/linear (g/extent (map first data))
                         [0 (- w (* 2 x))])
@@ -281,7 +282,13 @@
     [:button {:onclick #(emit [:run 100 true])} "Run"]
     [:button {:onclick #(emit [:run 100 false])} "Run Fast"]
     [:button {:onclick #(emit [:graphs (not graphs?)])}
-     (if graphs? "Hide graphs" "Show graphs")]]
+     (if graphs? "Hide graphs" "Show graphs")]
+    [:hr {}]
+    [:button {:onclick #(emit [:set-up :basic])} "Basic"]
+    [:button {:onclick #(emit [:set-up :efficient])} "Efficient"]
+    [:button {:onclick #(emit [:set-up :basic+efficient])} "Basic & Efficient"]
+    [:button {:onclick #(emit [:set-up :constrained])} "Constrained"]
+    [:button {:onclick #(emit [:set-up :all])} "All 3"]]
    [:svg {:id "space" :width "100%" :height "100%"}
     (for [{:keys [x y] :as d} dice]
       (when x
