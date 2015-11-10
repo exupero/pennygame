@@ -276,19 +276,21 @@
 
 (defn ui [{:keys [width height step dice scenarios graphs?]} emit]
   [:main {}
-   [:div {:style {:position :fixed :left 0 :top 0}}
-    [:div {} step " steps"]
-    [:button {:onclick #(emit [:run 1 true])} "Roll"]
-    [:button {:onclick #(emit [:run 100 true])} "Run"]
-    [:button {:onclick #(emit [:run 100 false])} "Run Fast"]
-    [:button {:onclick #(emit [:graphs (not graphs?)])}
-     (if graphs? "Hide graphs" "Show graphs")]
-    [:hr {}]
-    [:button {:onclick #(emit [:set-up :basic])} "Basic"]
-    [:button {:onclick #(emit [:set-up :efficient])} "Efficient"]
-    [:button {:onclick #(emit [:set-up :basic+efficient])} "Basic & Efficient"]
-    [:button {:onclick #(emit [:set-up :constrained])} "Constrained"]
-    [:button {:onclick #(emit [:set-up :all])} "All 3"]]
+   [:div {:style {:position :fixed :left "5px" :top "5px"}}
+    [:div {} step " steps"]]
+   [:div {:id "controls"}
+    [:section {:className "slidden"}
+     [:button {:onclick #(emit [:run 1 true])} "Roll"]
+     [:button {:onclick #(emit [:run 100 true])} "Run"]
+     [:button {:onclick #(emit [:run 100 false])} "Run Fast"]
+     [:button {:onclick #(emit [:graphs (not graphs?)])}
+      (if graphs? "Hide graphs" "Show graphs")]]
+    [:section {:className "slidden"}
+     [:button {:onclick #(emit [:set-up :basic])} "Basic"]
+     [:button {:onclick #(emit [:set-up :efficient])} "Efficient"]
+     [:button {:onclick #(emit [:set-up :basic+efficient])} "Basic & Efficient"]
+     [:button {:onclick #(emit [:set-up :constrained])} "Constrained"]
+     [:button {:onclick #(emit [:set-up :all])} "All 3"]]]
    [:svg {:id "space" :width "100%" :height "100%"}
     (for [{:keys [x y] :as d} dice]
       (when x
