@@ -30,32 +30,30 @@
 
 (defonce actions (chan))
 (def emit #(put! actions %))
-(defonce stop (atom (chan)))
+(defonce running? (atom false))
 
 (defn run-steps [n animations?]
   (go
-    (let [[_ ch] (alts! [@stop] :default nil)]
-      (when (= :default ch)
-        (>! actions :roll)
-        (>! actions :determine-capacity)
-        (when animations?
-          (>! actions [:intaking true])
-          (<! (animations/run))
-          (>! actions [:intaking false]))
-        (>! actions :transfer-to-processed)
-        (>! actions :transfer-to-next-station)
-        (>! actions :set-spacing)
-        (when animations?
-          (>! actions [:dropping true])
-          (<! (animations/run))
-          (>! actions [:dropping false]))
-        (>! actions :integrate)
-        (>! actions :update-stats)
-        (when-not animations?
-          (<! (timeout (@settings/timing :step))))
-        (let [n (dec n)]
-          (when (pos? n)
-            (>! actions [:run n animations?])))))))
+    (>! actions :roll)
+    (>! actions :determine-capacity)
+    (when animations?
+      (>! actions [:intaking true])
+      (<! (animations/run))
+      (>! actions [:intaking false]))
+    (>! actions :transfer-to-processed)
+    (>! actions :transfer-to-next-station)
+    (>! actions :set-spacing)
+    (when animations?
+      (>! actions [:dropping true])
+      (<! (animations/run))
+      (>! actions [:dropping false]))
+    (>! actions :integrate)
+    (>! actions :update-stats)
+    (when-not animations?
+      (<! (timeout (@settings/timing :step))))
+    (let [n (dec n)]
+      (when (and @running? (pos? n))
+        (>! actions [:run n animations?])))))
 
 (defn initialize-setup []
   (go
@@ -79,11 +77,11 @@
                                        (assoc station :length (.getTotalLength path))
                                        station)))
     [:set-up s] (do
-                  (put! @stop true)
-                  (reset! stop (chan))
+                  (reset! running? false)
                   (initialize-setup)
                   (states/setups s))
     [:run n animations?] (do
+                           (reset! running? true)
                            (run-steps n animations?)
                            model)
     :roll (do
