@@ -57,7 +57,7 @@
 
 (defn initialize-setup []
   (go
-    (<! (timeout 30))
+    (<! (timeout 50))
     (let [size (juxt #(.-width %) #(.-height %))
           [w h] (-> js/document (.getElementById "space") .getBoundingClientRect size)]
       (put! actions [:size w h]))
