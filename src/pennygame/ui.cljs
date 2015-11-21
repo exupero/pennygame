@@ -203,7 +203,7 @@
                     "C" (pair [(/ s/penny 2) (/ bin-h 2)])
                     "," (pair [(/ s/penny 2) (/ bin-h 2)])
                     "," (pair [(/ w 2) (/ bin-h 2)]))}]
-    [:image {:xlink:href "/images/truck.svg"
+    [:image {:xlink:href js/truckSrc
              :width w
              :height bin-h}]))
 

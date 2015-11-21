@@ -35,6 +35,7 @@
                                          :elide-asserts true
                                          :optimizations :advanced
                                          :pretty-print false
-                                         :output-wrapper false}}}}
+                                         :output-wrapper false
+                                         :externs ["externs/svg.js"]}}}}
   :figwheel {:server-port 3451
              :css-dirs ["resources/public/css"]})
