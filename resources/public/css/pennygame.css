@@ -123,6 +123,10 @@ text {
   stroke: black;
 }
 
+.tracer {
+  fill: black;
+}
+
 .scenario.red .penny { fill: red; }
 .scenario.green .penny { fill: limegreen; }
 .scenario.blue .penny { fill: dodgerblue; }

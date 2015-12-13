@@ -50,28 +50,10 @@
   (fn [el]
     (enqueue! (tweener el f opts))))
 
-(defn transition [props opts]
-  (fn [el]
-    (let [ks (map name (keys props))
-          ts (zipmap
-               ks
-               (map (fn [[a b]]
-                      (let [d (- b a)]
-                        #(+ a (* d %))))
-                    (vals props)))
-          f (fn [_ t]
-              (doseq [[k df] (seq ts)]
-                (.setAttribute el k (df t))))]
-      (enqueue! (tweener el f opts)))))
-
-(defn path [p [xa ya] opts]
+(defn path [p f opts]
   (fn [el]
     (let [len (.getTotalLength p)
-          xa (name xa)
-          ya (name ya)
           f (fn [_ t]
               (let [[x y] (g/xy (.getPointAtLength p (* t len)))]
-                (doto el
-                  (.setAttribute xa x)
-                  (.setAttribute ya y))))]
+                (f el [x y])))]
       (enqueue! (tweener el f opts)))))

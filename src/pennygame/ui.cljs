@@ -1,6 +1,7 @@
 (ns pennygame.ui
   (:require-macros [pennygame.macros :refer [spy]])
-  (:require [vdom.hooks :refer [hook]]
+  (:require [clojure.string :as string]
+            [vdom.hooks :refer [hook]]
             [com.rpl.specter :as sp]
             [pennygame.settings :as settings]
             [pennygame.sizes :as s]
@@ -84,23 +85,17 @@
 (defn penny-xy [path i spacing]
   (g/xy (.getPointAtLength path (g/penny-d i spacing))))
 
-(defn penny-base [[x y] & args]
-  [:circle
-   (merge
-     {:class "penny"
-      :cx x
-      :cy y
-      :r (- (/ s/penny 2) 2)}
-     (apply hash-map args))])
-
-(defn penny
-  ([pos] (penny pos nil))
-  ([[x y] transition]
+(defn penny [[x y] tracer transition]
+  [:g {:transform (translate x y)
+       :hookTransition (when transition (hook transition))}
    [:circle {:class "penny"
-             :cx x
-             :cy y
-             :r (- (/ s/penny 2) 2)
-             :hookTransition (when transition (hook transition))}]))
+             :r (- (/ s/penny 2) 2)}]
+   (when tracer
+     [:circle {:class "tracer"
+               :r (/ s/penny 5)}])])
+
+(defn update-attribute! [el attr f & args]
+  (.setAttribute el attr (apply f (.getAttribute el attr) args)))
 
 (defn pennies [w h {ps :pennies :keys [spacing intaking spout-y] :as info}]
   (list
@@ -110,30 +105,30 @@
         (reverse
           (map-indexed
             (let [c (count ps)]
-              (fn [i _]
-                (let [[x y] (penny-xy path (+ c i) spacing)]
-                  (penny [x spout-y]
-                         (a/transition
-                           {:cy [spout-y y]}
+              (fn [i {:keys [tracer]}]
+                (let [[x y] (penny-xy path (+ c i) spacing)
+                      dy (- y spout-y)]
+                  (penny [x spout-y] tracer
+                         (a/tween
+                           (fn [el t]
+                             (.setAttribute el "transform" (translate x (+ spout-y (* t dy)))))
                            {:duration (@settings/timing :drop)
                             :delay (* i 50)
                             :easing a/ease-in})))))
             (info :dropping)))
         (reverse
           (map-indexed
-            (fn [i _]
+            (fn [i {:keys [tracer]}]
               (let [pos #(penny-xy path % spacing)]
-                (penny (pos i)
+                (penny (pos i) tracer
                        (when (pos? intaking)
                          (a/tween
                            (fn [el t]
                              (let [spot (max -1 (- i (* t intaking)))
                                    [x y] (pos spot)]
+                               (.setAttribute el "transform" (translate x y))
                                (if (= -1 spot)
-                                 (.setAttribute el "r" 0))
-                               (doto el
-                                 (.setAttribute "cx" x)
-                                 (.setAttribute "cy" y))))
+                                 (.setAttribute el "transform" "scale(0)"))))
                            {:duration (@settings/timing :intake)})))))
             ps))))))
 
@@ -189,15 +184,16 @@
   (list
     (let [ramp (dom/ramp id)]
       (when (and ramp (s :dropping?))
-        (reverse
-          (map-indexed
-            (fn [i p]
-              (penny [(/ s/penny 2) source-spout-y]
-                     (a/path ramp [:cx :cy]
-                       {:duration (@settings/timing :drop)
-                        :delay (* i 50)
-                        :easing a/ease-in})))
-            (s :incoming)))))
+        (map-indexed
+          (fn [i {:keys [tracer]}]
+            (penny [(/ s/penny 2) source-spout-y] tracer
+                   (a/path ramp
+                     (fn [el [x y]]
+                       (.setAttribute el "transform" (translate x y)))
+                     {:duration (@settings/timing :drop)
+                      :delay (* i 50)
+                      :easing a/ease-in})))
+          (s :incoming))))
     [:path {:class "ramp"
             :d (str "M" (pair [(/ s/penny 2) source-spout-y])
                     "C" (pair [(/ s/penny 2) (/ bin-h 2)])
@@ -237,10 +233,13 @@
                                                [i (f stats)])
                                              stats-history)}))
             data (mapcat :data stats)
-            x (g/linear (g/extent (map first data))
-                        [0 (- w (* 2 x))])
-            y (g/linear (or rng (g/extent (map second data)))
-                        [h 0])
+            actual-range (g/extent (map second data))
+            rng (cond
+                  (nil? rng) actual-range
+                  (= 1 (count rng)) [(first rng) (second actual-range)]
+                  :else rng)
+            x (g/linear (g/extent (map first data)) [0 (- w (* 2 x))])
+            y (g/linear rng [h 0])
             coord (fn [[i j]]
                     [(x i) (y j)])
             stats (sp/transform [sp/ALL :data] #(map coord %) stats)]
@@ -261,17 +260,21 @@
   (let [[one two three four] (g/cells dim 4)]
     [:g {:id "graphs"}
      (graph one scenarios
-            {:title "Total Input"
-             :accessor :total-input})
+            {:title "Work in Progress"
+             :accessor :wip})
      (graph two scenarios
             {:title "Total Output"
              :accessor :total-output})
      (graph three scenarios
-            {:title "Work in Progress"
-             :accessor :wip})
+            {:title "Inventory Turns"
+             :accessor :turns})
+     #_(graph three scenarios
+            {:title "Velocity"
+             :accessor #(/ (:total-velocity %) (:step %))
+             :range [0]})
      (graph four scenarios
             {:title "Utilization"
-             :accessor (comp (partial apply /) :total-utilization)
+             :accessor (comp #(apply / %) :total-utilization)
              :range [0 1]})]))
 
 (defn ui [{:keys [width height step dice scenarios graphs?]} emit]

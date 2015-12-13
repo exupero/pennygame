@@ -3,6 +3,13 @@
   (:require [com.rpl.specter :as s]
             [pennygame.sizes :as sizes]))
 
+(def processing? #(= :processing (:type %)))
+
+(defn initialize-tracer [setup]
+  (s/transform [:scenarios s/ALL :stations s/ALL #(:tracer-start %) :pennies s/LAST :tracer]
+    (constantly true)
+    setup))
+
 (defmulti capacity (fn [_ {t :type} _] t))
 
 (defmethod capacity :normal [roll _ _]
@@ -58,14 +65,28 @@
     :processed (take capacity pennies)))
 
 (defmethod process :supply [{:keys [capacity] :as station}]
-  (assoc station :processed (range capacity)))
+  (assoc station :processed (repeat capacity {})))
+
+(defn new-tracer [scenario]
+  (let [i (first (s/select [:stations s/ALL #(:tracer-reset %) :tracer-reset] scenario))]
+    (s/transform [:stations (s/srange i (inc i)) s/ALL :processed s/LAST :tracer]
+      (constantly true)
+      scenario)))
+
+(defn tracer-done? [stations]
+  (->> stations
+    (s/select [s/ALL #(:tracer-reset %) :processed s/ALL])
+    (some :tracer)))
+
+(defn handle-tracer [scenario]
+  (if (tracer-done? (scenario :stations))
+    (new-tracer scenario)
+    scenario))
 
 (defn transfer-to-processed [model]
-  (s/transform [:scenarios s/ALL :stations s/ALL #(get % :capacity)]
-    process
-    model))
-
-(def processing? #(= :processing (:type %)))
+  (->> model
+    (s/transform [:scenarios s/ALL :stations s/ALL #(get % :capacity)] process)
+    (s/transform [:scenarios s/ALL] handle-tracer)))
 
 (defn spacing [model]
   (let [sp (->> model
@@ -89,21 +110,29 @@
     #(concat %2 %1)
     model))
 
-(defn stats [{:keys [stations]} {:keys [total-input total-utilization total-output]
-                       :or {total-utilization [0 0]}}]
+(defn stats
+  [{:keys [stations]}
+   {:keys [step turns total-input total-utilization total-output total-velocity]
+    :or {step 0 turns 0 total-utilization [0 0]}}]
   (let [input (-> stations first :processed count)
         utilization (->> stations
                       (s/select [s/ALL processing?])
                       (map (juxt (comp count :processed) :capacity))
                       (apply map +))
-        output (-> stations butlast last :processed count)]
-    {:input input
-     :wip (->> stations
-            (s/select [s/ALL processing? :pennies])
-            (map count)
-            (reduce +))
+        output (-> stations butlast last :processed count)
+        wip (->> stations
+              (s/select [s/ALL processing? :pennies])
+              (map count)
+              (reduce +))
+        velocity (/ output wip)]
+    {:step (inc step)
+     :turns (if (tracer-done? stations) (inc turns) turns)
+     :input input
+     :wip wip
      :utilization utilization
      :output output
+     :velocity velocity
+     :total-velocity (+ total-velocity velocity)
      :total-input (+ total-input input)
      :total-utilization (map + total-utilization utilization)
      :total-output (+ total-output output)}))

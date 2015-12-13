@@ -14,8 +14,6 @@
 
 (enable-console-print!)
 
-(def initial-model (states/setups :basic))
-
 (defn dice-positions [model {w :width :keys [x]}]
   (let [ss (->> model :scenarios (filter :color) first :stations (drop 1))
         hs (map :height ss)
@@ -62,7 +60,9 @@
           [w h] (-> js/document (.getElementById "space") .getBoundingClientRect size)]
       (put! actions [:size w h]))
     (<! (timeout 100))
-    (put! actions :set-lengths)))
+    (put! actions :set-lengths)
+    (<! (timeout 100))
+    (put! actions :set-spacing)))
 
 (defn step [{:keys [scenarios] :as model} action]
   (match action
@@ -79,7 +79,9 @@
     [:set-up s] (do
                   (reset! running? false)
                   (initialize-setup)
-                  (states/setups s))
+                  (-> s
+                    states/setups
+                    u/initialize-tracer))
     [:run n animations?] (do
                            (reset! running? true)
                            (run-steps n animations?)
@@ -99,6 +101,7 @@
     :update-stats (u/stats-history model)
     [:graphs v] (assoc model :graphs? v)))
 
+(def initial-model (u/initialize-tracer (states/setups :basic)))
 (defonce models (foldp step initial-model actions))
 (defonce setup (render! (async/map #(ui/ui % emit) [models]) js/document.body))
 
