@@ -17,9 +17,9 @@
 
 (defmethod capacity :high [roll _ _]
   (case roll
-    1 2
+    1 4
     2 4
-    3 6
+    3 4
     4 4
     5 5
     6 6))
