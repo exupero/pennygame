@@ -212,72 +212,75 @@
             :transform (translate 0 y)}
         (station s)])]))
 
-(defn graph [{w :width h :height :keys [x y]}
-             scenarios
-             {f :accessor rng :range :keys [title]}]
-  [:g {:class "graph"
-       :transform (translate x y)}
-   [:rect {:width w :height h}]
-   [:text {:class "title"
-           :x (/ w 2)
-           :y (/ h 2)
-           :dy 10}
-    title]
-   (let [x 30
-         h (- h (* 2 x))]
-     [:g {:transform (translate x x)}
-      (let [stats (doall (for [{:keys [color stats-history]} scenarios
-                               :when color]
-                         {:color color
-                          :data (map-indexed (fn [i stats]
-                                               [i (f stats)])
-                                             stats-history)}))
-            data (mapcat :data stats)
-            actual-range (g/extent (map second data))
-            rng (cond
-                  (nil? rng) actual-range
-                  (= 1 (count rng)) [(first rng) (second actual-range)]
-                  :else rng)
-            x (g/linear (g/extent (map first data)) [0 (- w (* 2 x))])
-            y (g/linear rng [h 0])
-            coord (fn [[i j]]
-                    [(x i) (y j)])
-            stats (sp/transform [sp/ALL :data] #(map coord %) stats)]
-        (list
-          (for [{:keys [color data]} stats]
-            [:path {:class (str "history stroke")
-                    :d (path data)}])
-          (for [{:keys [color data]} stats]
-            [:path {:class (str "history " (name color))
-                    :d (path data)}])))
+(defn graph
+  [{w :width h :height :keys [x y]}
+   scenarios
+   averages
+   {f :accessor rng :range :keys [title]}]
+  (let [p 30
+        ih (- h (* 2 p))
+        stats (for [{:keys [color stats-history]} scenarios
+                    :when color]
+                {:color color
+                 :data (map-indexed #(vector %1 (f %2)) stats-history)})
+        data (mapcat :data stats)
+        rng (concat rng (drop (count rng) (g/extent (map second data))))
+        sx (g/linear (g/extent (map first data)) [0 (- w (* 2 p))])
+        sy (g/linear rng [ih 0])
+        coord #(vector (sx %1) (sy %2))
+        stats (sp/transform [sp/ALL :data sp/ALL] #(apply coord %) stats)
+        avg-stats (for [[k xs] averages]
+                    {:color (k {:basic :red
+                                :efficient :green
+                                :constrained :blue})
+                     :data (map-indexed #(coord %1 (f %2)) xs)})
+        clip-id (name (gensym "clip"))]
+    [:g {:class (str "graph " (when averages "averaging"))
+         :transform (translate x y)}
+     [:rect {:width w :height h}]
+     [:text {:class "title"
+             :x (/ w 2)
+             :y (/ h 2)
+             :dy 10}
+      title]
+     [:defs {}
+      [:clipPath {:id clip-id}
+       [:rect {:y -1 :width (- w (* 2 p)) :height (inc (- h (* 2 p)))}]]]
+     [:g {:transform (translate p p)}
+      [:g {:clip-path (str "url(#" clip-id ")")}
+       (for [{:keys [color data]} avg-stats]
+         [:path {:class (str "average " (name color))
+                 :d (path data)}])
+       (for [{:keys [color data]} stats]
+         [:path {:class "history stroke"
+                 :d (path data)}])
+       (for [{:keys [color data]} stats]
+         [:path {:class (str "history " (name color))
+                 :d (path data)}])]
       [:line {:class "axis"
-              :transform (translate 0 h)
-              :x2 (- w (* 2 x))}]
+              :transform (translate 0 ih)
+              :x2 (- w (* 2 p))}]
       [:line {:class "axis"
-              :y2 h}]])])
+              :y2 ih}]]]))
 
-(defn graphs [dim scenarios]
+(defn graphs [dim scenarios averages]
   (let [[one two three four] (g/cells dim 4)]
     [:g {:id "graphs"}
-     (graph one scenarios
+     (graph one scenarios averages
             {:title "Work in Progress"
              :accessor :wip})
-     (graph two scenarios
+     (graph two scenarios averages
             {:title "Total Output"
              :accessor :total-output})
-     (graph three scenarios
+     (graph three scenarios averages
             {:title "Inventory Turns"
              :accessor :turns})
-     #_(graph three scenarios
-            {:title "Velocity"
-             :accessor #(/ (:total-velocity %) (:step %))
-             :range [0]})
-     (graph four scenarios
+     (graph four scenarios averages
             {:title "Utilization"
-             :accessor (comp #(apply / %) :total-utilization)
+             :accessor :percent-utilization
              :range [0 1]})]))
 
-(defn ui [{:keys [width height step dice scenarios graphs?]} emit]
+(defn ui [{:keys [width height step dice scenarios averages graphs?]} emit]
   [:main {}
    [:div {:style {:position :fixed :left "5px" :top "5px"}}
     [:div {} step " steps"]]
@@ -287,7 +290,9 @@
      [:button {:onclick #(emit [:run 100 true])} "Run"]
      [:button {:onclick #(emit [:run 100 false])} "Run Fast"]
      [:button {:onclick #(emit [:graphs (not graphs?)])}
-      (if graphs? "Hide graphs" "Show graphs")]]
+      (if graphs? "Hide graphs" "Show graphs")]
+     [:button {:onclick #(emit [:averages (not averages)])}
+      (if averages "Hide averages" "Average")]]
     [:section {:className "slidden"}
      [:button {:onclick #(emit [:set-up :basic])} "Basic"]
      [:button {:onclick #(emit [:set-up :efficient])} "Efficient"]
@@ -301,4 +306,4 @@
          (die d)]))
     (map scenario scenarios)
     (when (and width height graphs?)
-      (graphs [width height] scenarios))]])
+      (graphs [width height] scenarios averages))]])

@@ -9,6 +9,7 @@
             [pennygame.sizes :as sizes]
             [pennygame.states :as states]
             [pennygame.settings :as settings]
+            [pennygame.statistics :as statistics]
             [pennygame.updates :as u]
             [pennygame.ui :as ui]))
 
@@ -64,6 +65,19 @@
     (<! (timeout 100))
     (put! actions :set-spacing)))
 
+(defn generate-averages [model]
+  (let [average (statistics/averager model)
+        steps (model :step)
+        dt 100]
+    (go
+      (>! actions [:average (statistics/stats model)])
+      (<! (timeout dt))
+      (loop [i 0]
+        (when (< i 50)
+          (>! actions [:average (average (statistics/run steps statistics/scenario))])
+          (<! (timeout dt))
+          (recur (inc i)))))))
+
 (defn step [{:keys [scenarios] :as model} action]
   (match action
     :no-op model
@@ -86,11 +100,9 @@
                            (reset! running? true)
                            (run-steps n animations?)
                            model)
-    :roll (do
-            (-> model
-              (update :step inc)
-              (update :dice u/roll
-                (vec (repeatedly 5 #(->> (js/Math.random) (* 6) inc int))))))
+    :roll (-> model
+            (update :step inc)
+            (u/roll-dice (repeatedly #(->> (js/Math.random) (* 6) inc int))))
     :determine-capacity (u/determine-capacities model)
     [:intaking v] (u/stations model #(assoc % :intaking? v))
     :transfer-to-processed (u/transfer-to-processed model)
@@ -99,7 +111,13 @@
     [:dropping v] (u/stations model #(assoc % :dropping? v))
     :integrate (u/integrate-incoming model)
     :update-stats (u/stats-history model)
-    [:graphs v] (assoc model :graphs? v)))
+    [:graphs v] (assoc model :graphs? v)
+    [:averages v] (if v
+                    (do
+                      (generate-averages model)
+                      model)
+                    (dissoc model :averages))
+    [:average avg] (assoc model :averages avg)))
 
 (def initial-model (u/initialize-tracer (states/setups :basic)))
 (defonce models (foldp step initial-model actions))

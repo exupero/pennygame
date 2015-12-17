@@ -131,6 +131,10 @@ text {
 .scenario.green .penny { fill: limegreen; }
 .scenario.blue .penny { fill: dodgerblue; }
 
+.averaging .history {
+  opacity: 0;
+}
+
 .history {
   fill: none;
   stroke-width: 2;
@@ -144,3 +148,12 @@ text {
 .history.red { stroke: red; }
 .history.green { stroke: limegreen; }
 .history.blue { stroke: dodgerblue; }
+
+.average {
+  fill: none;
+  stroke-width: 2;
+}
+
+.average.red { stroke: red; }
+.average.green { stroke: limegreen; }
+.average.blue { stroke: dodgerblue; }

@@ -33,6 +33,9 @@
 (defn roll [dice values]
   (vec (map #(assoc %1 :value %2) dice values)))
 
+(defn roll-dice [model values]
+  (update model :dice roll values))
+
 (defn determine-base-capacities [model dice]
   (s/transform [:scenarios s/ALL :stations s/VAL s/ALL #(contains? % :die)]
     (fn [stations {:keys [die productivity pennies] :as station}]
@@ -112,10 +115,9 @@
 
 (defn stats
   [{:keys [stations]}
-   {:keys [step turns total-input total-utilization total-output total-velocity]
-    :or {step 0 turns 0 total-utilization [0 0]}}]
-  (let [input (-> stations first :processed count)
-        utilization (->> stations
+   {:keys [turns total-utilization total-output total-utilization]
+    :or {turns 0 total-utilization [0 0]}}]
+  (let [utilization (->> stations
                       (s/select [s/ALL processing?])
                       (map (juxt (comp count :processed) :capacity))
                       (apply map +))
@@ -124,18 +126,12 @@
               (s/select [s/ALL processing? :pennies])
               (map count)
               (reduce +))
-        velocity (/ output wip)]
-    {:step (inc step)
+        total-utilization (map + total-utilization utilization)]
+    {:wip wip
      :turns (if (tracer-done? stations) (inc turns) turns)
-     :input input
-     :wip wip
-     :utilization utilization
-     :output output
-     :velocity velocity
-     :total-velocity (+ total-velocity velocity)
-     :total-input (+ total-input input)
-     :total-utilization (map + total-utilization utilization)
-     :total-output (+ total-output output)}))
+     :total-output (+ total-output output)
+     :total-utilization total-utilization
+     :percent-utilization (apply / total-utilization)}))
 
 (defn stats-history [model]
   (s/transform [:scenarios s/ALL s/VAL :stats-history]

@@ -2,3 +2,7 @@ checkouts
 target
 
 resources/public/js-dev
+
+.cljs_rhino_repl
+.lein-repl-history
+.nrepl-port
