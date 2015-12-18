@@ -21,13 +21,13 @@
 (defn prune-stats [stats]
   (select-keys stats [:wip :total-output :turns :percent-utilization]))
 
-(def scenario {:step 0 :dice s/dice :scenarios [s/basic s/efficient s/constrained]})
+(def scenario {:step 0 :dice s/dice :scenarios [s/basic s/efficient s/constrained s/fixed]})
 
 (defn stats [model]
   (->> model
     :scenarios
     (map (comp #(map prune-stats %) :stats-history))
-    (zipmap [:basic :efficient :constrained])))
+    (zipmap [:basic :efficient :constrained :fixed])))
 
 (defn map-vals [f m]
   (zipmap (keys m) (map f (vals m))))

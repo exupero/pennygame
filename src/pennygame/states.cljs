@@ -49,7 +49,18 @@
   (scenario
     :color :blue
     :stations
-    [(station :type :supply :die 0 :productivity {:type :constrained :by-station 3})
+    [(station :type :supply :die 0 :productivity {:type :constrained :by-station 3 :use :capacity})
+     (station :supplier 0 :die 1 :productivity {:type :high} :tracer-start true)
+     (station :supplier 1 :die 2 :productivity {:type :high})
+     (station :supplier 2 :die 3)
+     (station :supplier 3 :die 4 :productivity {:type :high} :tracer-reset 0)
+     (station :type :distribution :supplier 4)]))
+
+(def fixed
+  (scenario
+    :color :purple
+    :stations
+    [(station :type :supply :die 0 :productivity {:type :constrained :by-station 4 :use :output})
      (station :supplier 0 :die 1 :productivity {:type :high} :tracer-start true)
      (station :supplier 1 :die 2 :productivity {:type :high})
      (station :supplier 2 :die 3)
@@ -61,4 +72,6 @@
    :efficient {:step 0 :dice dice :scenarios [(scenario) efficient (scenario)]}
    :constrained {:step 0 :dice dice :scenarios [(scenario) (scenario) constrained]}
    :basic+efficient {:step 0 :dice dice :scenarios [basic efficient (scenario)]}
-   :all {:step 0 :dice dice :scenarios [basic efficient constrained]}})
+   :basic+efficient+constrained {:step 0 :dice dice :scenarios [basic efficient constrained]}
+   :basic+efficient+fixed {:step 0 :dice dice :scenarios [basic efficient fixed]}
+   :basic+efficient+constrained+fixed {:step 0 :dice dice :scenarios [basic efficient constrained fixed]}})

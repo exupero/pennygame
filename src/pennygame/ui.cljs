@@ -212,11 +212,27 @@
             :transform (translate 0 y)}
         (station s)])]))
 
+(defn graph-labels [stats formatter cls]
+  (when (seq stats)
+    (let [ys (->> stats
+               (map #(-> % :coords last second))
+               (g/separate 10))]
+      (for [[{:keys [coords data]} y] (map vector stats ys)
+            :let [[x] (last coords)]
+            :when x]
+        [:text {:class (str "label " cls)
+                :transform (translate x y)
+                :dy 4}
+         (-> data last second formatter)]))))
+
 (defn graph
   [{w :width h :height :keys [x y]}
    scenarios
    averages
-   {f :accessor rng :range :keys [title]}]
+   {f :accessor
+    rng :range
+    :keys [title formatter]
+    :or {formatter identity}}]
   (let [p 30
         ih (- h (* 2 p))
         stats (for [{:keys [color stats-history]} scenarios
@@ -228,13 +244,17 @@
         sx (g/linear (g/extent (map first data)) [0 (- w (* 2 p))])
         sy (g/linear rng [ih 0])
         coord #(vector (sx %1) (sy %2))
-        stats (sp/transform [sp/ALL :data sp/ALL] #(apply coord %) stats)
-        avg-stats (for [[k xs] averages]
+        stats (map (fn [d]
+                     (assoc d :coords (map #(apply coord %) (d :data))))
+                   stats)
+        avg-stats (for [[k xs] averages
+                        :let [data (map-indexed #(vector %1 (f %2)) xs)]]
                     {:color (k {:basic :red
                                 :efficient :green
-                                :constrained :blue})
-                     :data (map-indexed #(coord %1 (f %2)) xs)})
-        clip-id (name (gensym "clip"))]
+                                :constrained :blue
+                                :fixed :purple})
+                     :data data
+                     :coords (map #(apply coord %) data)})]
     [:g {:class (str "graph " (when averages "averaging"))
          :transform (translate x y)}
      [:rect {:width w :height h}]
@@ -243,20 +263,18 @@
              :y (/ h 2)
              :dy 10}
       title]
-     [:defs {}
-      [:clipPath {:id clip-id}
-       [:rect {:y -1 :width (- w (* 2 p)) :height (inc (- h (* 2 p)))}]]]
      [:g {:transform (translate p p)}
-      [:g {:clip-path (str "url(#" clip-id ")")}
-       (for [{:keys [color data]} avg-stats]
-         [:path {:class (str "average " (name color))
-                 :d (path data)}])
-       (for [{:keys [color data]} stats]
-         [:path {:class "history stroke"
-                 :d (path data)}])
-       (for [{:keys [color data]} stats]
-         [:path {:class (str "history " (name color))
-                 :d (path data)}])]
+      (for [{:keys [color coords]} avg-stats]
+        [:path {:class (str "average " (name color))
+                :d (path coords)}])
+      (for [{:keys [color coords]} stats]
+        [:path {:class "history stroke"
+                :d (path coords)}])
+      (for [{:keys [color coords]} stats]
+        [:path {:class (str "history " (name color))
+                :d (path coords)}])
+      (graph-labels stats formatter "history")
+      (graph-labels avg-stats formatter "average")
       [:line {:class "axis"
               :transform (translate 0 ih)
               :x2 (- w (* 2 p))}]
@@ -268,17 +286,22 @@
     [:g {:id "graphs"}
      (graph one scenarios averages
             {:title "Work in Progress"
-             :accessor :wip})
+             :accessor :wip
+             :range [0]
+             :formatter #(.round js/Math %)})
      (graph two scenarios averages
             {:title "Total Output"
-             :accessor :total-output})
+             :accessor :total-output
+             :formatter #(.round js/Math %)})
      (graph three scenarios averages
             {:title "Inventory Turns"
-             :accessor :turns})
+             :accessor :turns
+             :formatter #(.round js/Math %)})
      (graph four scenarios averages
             {:title "Utilization"
              :accessor :percent-utilization
-             :range [0 1]})]))
+             :range [0 1]
+             :formatter #(str (.round js/Math (* 100 %)) "%")})]))
 
 (defn ui [{:keys [width height step dice scenarios averages graphs?]} emit]
   [:main {}
@@ -298,7 +321,9 @@
      [:button {:onclick #(emit [:set-up :efficient])} "Efficient"]
      [:button {:onclick #(emit [:set-up :basic+efficient])} "Basic & Efficient"]
      [:button {:onclick #(emit [:set-up :constrained])} "Constrained"]
-     [:button {:onclick #(emit [:set-up :all])} "All 3"]]]
+     [:button {:onclick #(emit [:set-up :basic+efficient+constrained])} "Basic, Efficient, & Constrained"]
+     [:button {:onclick #(emit [:set-up :basic+efficient+constrained+fixed])} "Basic, Efficient, Constrained, & Fixed"]
+     ]]
    [:svg {:id "space" :width "100%" :height "100%"}
     (for [{:keys [x y] :as d} dice]
       (when x

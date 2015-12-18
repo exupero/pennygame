@@ -1,4 +1,5 @@
 (ns pennygame.geometry
+  (:require-macros [pennygame.macros :refer [spy]])
   (:require [pennygame.sizes :as s]))
 
 (defn dots [n]
@@ -39,3 +40,30 @@
         m (/ (- rh rl) (- dh dl))
         b (- rh (* m dh))]
     #(+ (* m %) b)))
+
+(defn combinations [n coll]
+  (if (= 1 n)
+    (map list coll)
+    (lazy-seq
+      (when-let [[head & tail] (seq coll)]
+        (concat (for [x (combinations (dec n) tail)]
+                  (cons head x))
+                (combinations n tail))))))
+
+(def abs #(.abs js/Math %))
+
+(defn separate [t xs]
+  (let [shift #(let [[a b] (sort %)
+                     dx (/ (- b a) 2)]
+                 {a (- a dx)
+                  b (+ b dx)})]
+    (loop [xs xs]
+      (let [tc (->> xs
+                 (combinations 2)
+                 (map #(vector (abs (apply - %)) %))
+                 (filter #(< 0 (first %) t))
+                 (apply min-key first)
+                 second)]
+        (if tc
+          (recur (replace (shift tc) xs))
+          xs)))))

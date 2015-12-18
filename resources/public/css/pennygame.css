@@ -130,9 +130,14 @@ text {
 .scenario.red .penny { fill: red; }
 .scenario.green .penny { fill: limegreen; }
 .scenario.blue .penny { fill: dodgerblue; }
+.scenario.purple .penny { fill: violet; }
 
 .averaging .history {
   opacity: 0;
+}
+
+text.history, text.average {
+  fill: black;
 }
 
 .history {
@@ -148,6 +153,7 @@ text {
 .history.red { stroke: red; }
 .history.green { stroke: limegreen; }
 .history.blue { stroke: dodgerblue; }
+.history.purple { stroke: violet; }
 
 .average {
   fill: none;
@@ -157,3 +163,9 @@ text {
 .average.red { stroke: red; }
 .average.green { stroke: limegreen; }
 .average.blue { stroke: dodgerblue; }
+.average.purple { stroke: violet; }
+
+.graph .label {
+  font-size: 10pt;
+  text-anchor: start;
+}

@@ -24,8 +24,11 @@
     5 5
     6 6))
 
-(defmethod capacity :constrained [roll {i :by-station} stations]
-  (get-in (vec stations) [i :capacity]))
+(defmethod capacity :constrained [roll {i :by-station u :use} stations]
+  (let [{:keys [capacity pennies]} (nth stations i)]
+    (if (= u :capacity)
+      capacity
+      (min capacity (count pennies)))))
 
 (defn stations [model f]
   (s/transform [:scenarios s/ALL :stations s/ALL] f model))
@@ -134,6 +137,6 @@
      :percent-utilization (apply / total-utilization)}))
 
 (defn stats-history [model]
-  (s/transform [:scenarios s/ALL s/VAL :stats-history]
+  (s/transform [:scenarios s/ALL #(seq (get % :stations)) s/VAL :stats-history]
     #(conj %2 (stats %1 (peek %2)))
     model))
