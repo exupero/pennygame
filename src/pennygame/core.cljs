@@ -29,7 +29,6 @@
 
 (defonce actions (chan))
 (def emit #(put! actions %))
-(defonce running? (atom false))
 
 (defn run-steps [n animations?]
   (go
@@ -51,8 +50,9 @@
     (when-not animations?
       (<! (timeout (@settings/timing :step))))
     (let [n (dec n)]
-      (when (and @running? (pos? n))
-        (>! actions [:run n animations?])))))
+      (if (pos? n)
+        (>! actions [:run-next n animations?])
+        (>! actions [:running false])))))
 
 (defn initialize-setup []
   (go
@@ -65,16 +65,16 @@
     (<! (timeout 100))
     (put! actions :set-spacing)))
 
-(defn generate-averages [model]
-  (let [average (statistics/averager model)
-        steps (model :step)
+(defn generate-averages [original current]
+  (let [average (statistics/averager current)
+        steps (current :step)
         dt 100]
     (go
-      (>! actions [:average (statistics/stats model)])
+      (>! actions [:average (statistics/stats current)])
       (<! (timeout dt))
       (loop [i 0]
         (when (< i 50)
-          (>! actions [:average (average (statistics/run steps statistics/scenario))])
+          (>! actions [:average (average (statistics/run steps original))])
           (<! (timeout dt))
           (recur (inc i)))))))
 
@@ -83,47 +83,55 @@
     :no-op model
     [:size w h] (let [left 150]
                   (-> model
-                    (assoc :width w :height h)
-                    (update :scenarios (partial sizes/scenarios {:x left :width (- w left) :height h}))
-                    (dice-positions {:x 45 :width (- left 90)})))
-    :set-lengths (u/stations model (fn [{:keys [id] :as station}]
-                                     (if-let [path (dom/penny-path id)]
-                                       (assoc station :length (.getTotalLength path))
-                                       station)))
-    [:set-up s] (do
-                  (reset! running? false)
-                  (initialize-setup)
-                  (-> s
-                    states/setups
-                    u/initialize-tracer))
+                    (assoc-in [:setup :width] w)
+                    (assoc-in [:setup :height] h)
+                    (update-in [:setup :scenarios] (partial sizes/scenarios {:x left :width (- w left) :height h}))
+                    (update :setup dice-positions {:x 45 :width (- left 90)})))
+    :set-lengths (update model :setup u/stations (fn [{:keys [id] :as station}]
+                                                   (if-let [path (dom/penny-path id)]
+                                                     (assoc station :length (.getTotalLength path))
+                                                     station)))
+    [:setup s] (do
+                 (initialize-setup)
+                 (let [setup (-> states/setups s u/initialize-tracer)]
+                   (assoc model
+                          :setup setup
+                          :original-setup setup
+                          :running? false)))
+    [:running v] (assoc model :running? v)
     [:run n animations?] (do
-                           (reset! running? true)
                            (run-steps n animations?)
-                           model)
+                           (assoc model :running? true))
+    [:run-next n animations?] (do
+                                (when (model :running?)
+                                  (run-steps n animations?))
+                                model)
+    [:execute n] (update model :setup #(statistics/run n %))
     :roll (-> model
-            (update :step inc)
-            (u/roll-dice (repeatedly #(->> (js/Math.random) (* 6) inc int))))
-    :determine-capacity (u/determine-capacities model)
-    [:intaking v] (u/stations model #(assoc % :intaking? v))
-    :transfer-to-processed (u/transfer-to-processed model)
-    :transfer-to-next-station (u/take-supplier-processed model)
-    :set-spacing (u/spacing model)
-    [:dropping v] (u/stations model #(assoc % :dropping? v))
-    :integrate (u/integrate-incoming model)
-    :update-stats (u/stats-history model)
+            (update-in [:setup :step] inc)
+            (update :setup u/roll-dice (repeatedly #(->> (js/Math.random) (* 6) inc int))))
+    :determine-capacity (update model :setup u/determine-capacities)
+    [:intaking v] (update model :setup u/stations #(assoc % :intaking? v))
+    :transfer-to-processed (update model :setup u/transfer-to-processed)
+    :transfer-to-next-station (update model :setup u/take-supplier-processed)
+    :set-spacing (update model :setup u/spacing)
+    [:dropping v] (update model :setup u/stations #(assoc % :dropping? v))
+    :integrate (update model :setup u/integrate-incoming)
+    :update-stats (update model :setup u/stats-history)
+    [:info v] (assoc model :info? v)
     [:graphs v] (assoc model :graphs? v)
     [:averages v] (if v
                     (do
-                      (generate-averages model)
+                      (generate-averages (model :original-setup) (model :setup))
                       model)
-                    (dissoc model :averages))
-    [:average avg] (assoc model :averages avg)))
+                    (update model :setup dissoc :averages))
+    [:average avg] (assoc-in model [:setup :averages] avg)))
 
-(def initial-model (u/initialize-tracer (states/setups :basic)))
-(defonce models (foldp step initial-model actions))
+(defonce models (foldp step {} actions))
 (defonce setup (render! (async/map #(ui/ui % emit) [models]) js/document.body))
-
-(initialize-setup)
+(defonce initial-model
+  (go
+    (>! actions [:setup :basic])))
 
 (defn figwheel-reload []
   (put! actions :no-op))

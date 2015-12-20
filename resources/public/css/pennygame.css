@@ -18,8 +18,13 @@ button {
   background: #e8e8e8;
 }
 
+button:disabled {
+  pointer-events: none;
+}
+
 button:hover {
   background: lightgray;
+  cursor: pointer;
 }
 
 button:last-child {
@@ -73,22 +78,19 @@ text {
   stroke-width: 2;
 }
 
-.spout {
+.spout path {
   fill: lightgray;
   stroke: black;
   stroke-width: 2;
 }
 
+.spout text {
+  text-anchor: middle;
+  fill: black;
+}
+
 .ramp {
   fill: none;
-}
-
-.productivity-high .spout {
-  fill: lightgreen;
-}
-
-.productivity-constrained .spout {
-  fill: lightblue;
 }
 
 .shelf {
@@ -127,11 +129,6 @@ text {
   fill: black;
 }
 
-.scenario.red .penny { fill: red; }
-.scenario.green .penny { fill: limegreen; }
-.scenario.blue .penny { fill: dodgerblue; }
-.scenario.purple .penny { fill: violet; }
-
 .averaging .history {
   opacity: 0;
 }
@@ -145,27 +142,25 @@ text.history, text.average {
   stroke-width: 2;
 }
 
-.history.stroke {
-  stroke: white;
-  stroke-width: 4;
-}
-
-.history.red { stroke: red; }
-.history.green { stroke: limegreen; }
-.history.blue { stroke: dodgerblue; }
-.history.purple { stroke: violet; }
-
 .average {
   fill: none;
   stroke-width: 2;
 }
 
-.average.red { stroke: red; }
-.average.green { stroke: limegreen; }
-.average.blue { stroke: dodgerblue; }
-.average.purple { stroke: violet; }
-
 .graph .label {
   font-size: 10pt;
   text-anchor: start;
 }
+
+.productivity-high .spout path { fill: lightgreen; }
+.productivity-constrained .spout path { fill: lightblue; }
+
+.red .fill, .red.fill       { fill: red; }
+.green .fill, .green.fill   { fill: limegreen; }
+.blue .fill, .blue.fill     { fill: dodgerblue; }
+.purple .fill, .purple.fill { fill: violet; }
+
+.red .stroke, .red.stroke       { stroke: red; }
+.green .stroke, .green.stroke   { stroke: limegreen; }
+.blue .stroke, .blue.stroke     { stroke: dodgerblue; }
+.purple .stroke, .purple.stroke { stroke: violet; }

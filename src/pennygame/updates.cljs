@@ -6,8 +6,8 @@
 (def processing? #(= :processing (:type %)))
 
 (defn initialize-tracer [setup]
-  (s/transform [:scenarios s/ALL :stations s/ALL #(:tracer-start %) :pennies s/LAST :tracer]
-    (constantly true)
+  (s/transform [:scenarios s/ALL :stations s/ALL #(:tracer-start %) :pennies s/LAST]
+    (constantly :tracer)
     setup))
 
 (defmulti capacity (fn [_ {t :type} _] t))
@@ -75,14 +75,14 @@
 
 (defn new-tracer [scenario]
   (let [i (first (s/select [:stations s/ALL #(:tracer-reset %) :tracer-reset] scenario))]
-    (s/transform [:stations (s/srange i (inc i)) s/ALL :processed s/LAST :tracer]
-      (constantly true)
+    (s/transform [:stations (s/srange i (inc i)) s/ALL :processed s/LAST]
+      (constantly :tracer)
       scenario)))
 
 (defn tracer-done? [stations]
   (->> stations
     (s/select [s/ALL #(:tracer-reset %) :processed s/ALL])
-    (some :tracer)))
+    (some #(= % :tracer))))
 
 (defn handle-tracer [scenario]
   (if (tracer-done? (scenario :stations))
@@ -118,13 +118,14 @@
 
 (defn stats
   [{:keys [stations]}
-   {:keys [turns total-utilization total-output total-utilization]
+   {:keys [turns total-input total-output total-utilization]
     :or {turns 0 total-utilization [0 0]}}]
-  (let [utilization (->> stations
+  (let [input (-> stations first :processed count)
+        output (-> stations butlast last :processed count)
+        utilization (->> stations
                       (s/select [s/ALL processing?])
                       (map (juxt (comp count :processed) :capacity))
                       (apply map +))
-        output (-> stations butlast last :processed count)
         wip (->> stations
               (s/select [s/ALL processing? :pennies])
               (map count)
@@ -132,11 +133,14 @@
         total-utilization (map + total-utilization utilization)]
     {:wip wip
      :turns (if (tracer-done? stations) (inc turns) turns)
+     :total-input (+ total-input input)
      :total-output (+ total-output output)
      :total-utilization total-utilization
      :percent-utilization (apply / total-utilization)}))
 
 (defn stats-history [model]
-  (s/transform [:scenarios s/ALL #(seq (get % :stations)) s/VAL :stats-history]
-    #(conj %2 (stats %1 (peek %2)))
-    model))
+  (->> model
+    (s/transform [:scenarios s/ALL #(seq (get % :stations)) :stations s/ALL #(< (count (:processed %)) (:capacity %)) :under-utilized]
+                 inc)
+    (s/transform [:scenarios s/ALL #(seq (get % :stations)) s/VAL :stats-history]
+                 #(conj %2 (stats %1 (peek %2))))))

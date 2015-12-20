@@ -85,12 +85,12 @@
 (defn penny-xy [path i spacing]
   (g/xy (.getPointAtLength path (g/penny-d i spacing))))
 
-(defn penny [[x y] tracer transition]
+(defn penny [[x y] t transition]
   [:g {:transform (translate x y)
        :hookTransition (when transition (hook transition))}
-   [:circle {:class "penny"
+   [:circle {:class "penny fill"
              :r (- (/ s/penny 2) 2)}]
-   (when tracer
+   (when (= t :tracer)
      [:circle {:class "tracer"
                :r (/ s/penny 5)}])])
 
@@ -105,10 +105,10 @@
         (reverse
           (map-indexed
             (let [c (count ps)]
-              (fn [i {:keys [tracer]}]
+              (fn [i p]
                 (let [[x y] (penny-xy path (+ c i) spacing)
                       dy (- y spout-y)]
-                  (penny [x spout-y] tracer
+                  (penny [x spout-y] p
                          (a/tween
                            (fn [el t]
                              (.setAttribute el "transform" (translate x (+ spout-y (* t dy)))))
@@ -118,9 +118,9 @@
             (info :dropping)))
         (reverse
           (map-indexed
-            (fn [i {:keys [tracer]}]
+            (fn [i p]
               (let [pos #(penny-xy path % spacing)]
-                (penny (pos i) tracer
+                (penny (pos i) p
                        (when (pos? intaking)
                          (a/tween
                            (fn [el t]
@@ -148,26 +148,34 @@
 (defn bin [w h]
   [:rect {:class "bin" :width w :height h}])
 
-(defn spout [y w]
-  (let [sp 3
-        top (- s/penny)
-        bottom (+ sp s/penny)
-        entrance-left (- w s/penny)]
-    [:path {:class "spout"
-            :transform (translate 0 y)
-            :d (closed-path [[w top]
-                             [w bottom]
-                             [0 bottom]
-                             [0 sp]
-                             [entrance-left sp]
-                             [entrance-left top]])}]))
+(defn spout
+  ([y w info?] (spout y w "" info?))
+  ([y w label info?]
+   (let [sp 3
+         top (- s/penny)
+         bottom (+ sp s/penny)
+         entrance-left (- w s/penny)]
+     [:g {:class "spout"
+          :transform (translate 0 y)}
+      [:path {:d (closed-path [[w top]
+                               [w bottom]
+                               [0 bottom]
+                               [0 sp]
+                               [entrance-left sp]
+                               [entrance-left top]])}]
+      (when info?
+        [:text {:transform (translate (/ w 2) bottom)
+                :dy -5} label])])))
 
 (defmulti station :type)
 
-(defmethod station :supply [{w :width :keys [bin-h spout-y]}]
-  (spout spout-y w))
+(defmethod station :supply
+  [{w :width :keys [bin-h spout-y stats]
+    :or {stats {}}}
+   info?]
+  (spout spout-y w (str "Total Input: " (stats :total-input 0)) info?))
 
-(defmethod station :processing [{w :width :keys [bin-h] :as s}]
+(defmethod station :processing [{w :width :keys [bin-h] :as s} info?]
   (list
     (shelves w bin-h)
     (bin w bin-h)
@@ -178,22 +186,25 @@
        :dropping (when (s :dropping?) (s :incoming))
        :path (dom/penny-path (s :id))
        :spout-y (s :source-spout-y)})
-    (spout (s :spout-y) w)))
+    (spout (s :spout-y) w (str "Under-utilized: " (s :under-utilized)) info?)))
 
-(defmethod station :distribution [{w :width :keys [id bin-h source-spout-y] :as s}]
+(defmethod station :distribution
+  [{w :width :keys [id bin-h source-spout-y stats incoming dropping?]
+    :or {stats {}}}
+   info?]
   (list
     (let [ramp (dom/ramp id)]
-      (when (and ramp (s :dropping?))
+      (when (and ramp dropping?)
         (map-indexed
-          (fn [i {:keys [tracer]}]
-            (penny [(/ s/penny 2) source-spout-y] tracer
+          (fn [i p]
+            (penny [(/ s/penny 2) source-spout-y] p
                    (a/path ramp
-                     (fn [el [x y]]
-                       (.setAttribute el "transform" (translate x y)))
-                     {:duration (@settings/timing :drop)
-                      :delay (* i 50)
-                      :easing a/ease-in})))
-          (s :incoming))))
+                           (fn [el [x y]]
+                             (.setAttribute el "transform" (translate x y)))
+                           {:duration (@settings/timing :drop)
+                            :delay (* i 50)
+                            :easing a/ease-in})))
+          incoming)))
     [:path {:class "ramp"
             :d (str "M" (pair [(/ s/penny 2) source-spout-y])
                     "C" (pair [(/ s/penny 2) (/ bin-h 2)])
@@ -201,29 +212,42 @@
                     "," (pair [(/ w 2) (/ bin-h 2)]))}]
     [:image {:xlink:href js/truckSrc
              :width w
-             :height bin-h}]))
+             :height bin-h}]
+    (when info?
+      [:text {:dx (/ w 2)
+              :dy -4
+              :text-anchor "middle"}
+       (str "Total Output: " (stats :total-output 0))])))
 
-(defn scenario [{:keys [x color stations]}]
+(defn scenario [{:keys [x color stations stats-history]} info?]
   (when (and x color)
     [:g {:class (str "scenario " (name color)) :transform (translate x 0)}
      (for [{{t :type} :productivity :keys [id y] :as s} (reverse stations)]
        [:g {:id id
             :class (str (name t) " productivity-" (name t))
             :transform (translate 0 y)}
-        (station s)])]))
+        (if (seq stats-history)
+          (station (assoc s :stats (peek stats-history)) info?)
+          (station s info?))])]))
 
-(defn graph-labels [stats formatter cls]
+(defn graph-labels [stats coord formatter cls]
   (when (seq stats)
     (let [ys (->> stats
-               (map #(-> % :coords last second))
+               (map #(-> % :data last coord second))
                (g/separate 10))]
-      (for [[{:keys [coords data]} y] (map vector stats ys)
-            :let [[x] (last coords)]
+      (for [[{:keys [data]} y] (map vector stats ys)
+            :let [[x] (coord (last data))]
             :when x]
         [:text {:class (str "label " cls)
                 :transform (translate x y)
                 :dy 4}
          (-> data last second formatter)]))))
+
+(def scenario-name->color
+  {:basic :red
+   :efficient :green
+   :constrained :blue
+   :fixed :purple})
 
 (defn graph
   [{w :width h :height :keys [x y]}
@@ -239,22 +263,15 @@
                     :when color]
                 {:color color
                  :data (map-indexed #(vector %1 (f %2)) stats-history)})
-        data (mapcat :data stats)
-        rng (concat rng (drop (count rng) (g/extent (map second data))))
-        sx (g/linear (g/extent (map first data)) [0 (- w (* 2 p))])
-        sy (g/linear rng [ih 0])
-        coord #(vector (sx %1) (sy %2))
-        stats (map (fn [d]
-                     (assoc d :coords (map #(apply coord %) (d :data))))
-                   stats)
         avg-stats (for [[k xs] averages
                         :let [data (map-indexed #(vector %1 (f %2)) xs)]]
-                    {:color (k {:basic :red
-                                :efficient :green
-                                :constrained :blue
-                                :fixed :purple})
-                     :data data
-                     :coords (map #(apply coord %) data)})]
+                    {:color (scenario-name->color k)
+                     :data data})
+        [sx sy] (g/graph-scales
+                  (concat (map :data stats) (map :data avg-stats))
+                  {:width (- w (* 2 p)) :height ih}
+                  {:domain [] :range rng})
+        coord #(vector (sx (first %)) (sy (second %)))]
     [:g {:class (str "graph " (when averages "averaging"))
          :transform (translate x y)}
      [:rect {:width w :height h}]
@@ -264,17 +281,14 @@
              :dy 10}
       title]
      [:g {:transform (translate p p)}
-      (for [{:keys [color coords]} avg-stats]
-        [:path {:class (str "average " (name color))
-                :d (path coords)}])
-      (for [{:keys [color coords]} stats]
-        [:path {:class "history stroke"
-                :d (path coords)}])
-      (for [{:keys [color coords]} stats]
-        [:path {:class (str "history " (name color))
-                :d (path coords)}])
-      (graph-labels stats formatter "history")
-      (graph-labels avg-stats formatter "average")
+      (for [{:keys [color data]} avg-stats]
+        [:path {:class (str "average stroke " (name color))
+                :d (path (map coord data))}])
+      (for [{:keys [color data]} stats]
+        [:path {:class (str "history stroke " (name color))
+                :d (path (map coord data))}])
+      (graph-labels stats coord formatter "history")
+      (graph-labels avg-stats coord formatter "average")
       [:line {:class "axis"
               :transform (translate 0 ih)
               :x2 (- w (* 2 p))}]
@@ -303,32 +317,39 @@
              :range [0 1]
              :formatter #(str (.round js/Math (* 100 %)) "%")})]))
 
-(defn ui [{:keys [width height step dice scenarios averages graphs?]} emit]
-  [:main {}
-   [:div {:style {:position :fixed :left "5px" :top "5px"}}
-    [:div {} step " steps"]]
-   [:div {:id "controls"}
+(defn controls [{{:keys [step averages]} :setup :keys [info? graphs? running?]} emit]
+  [:div {:id "controls"}
     [:section {:className "slidden"}
      [:button {:onclick #(emit [:run 1 true])} "Roll"]
      [:button {:onclick #(emit [:run 100 true])} "Run"]
      [:button {:onclick #(emit [:run 100 false])} "Run Fast"]
+     [:button {:onclick #(emit [:execute 100])} "Run Instantly"]
+     [:button {:onclick #(emit [:info (not info?)])}
+      (if info? "Hide info" "Show info")]
      [:button {:onclick #(emit [:graphs (not graphs?)])}
       (if graphs? "Hide graphs" "Show graphs")]
-     [:button {:onclick #(emit [:averages (not averages)])}
-      (if averages "Hide averages" "Average")]]
+     (when graphs?
+       [:button {:disabled (or (zero? step) running?)
+                 :onclick #(emit [:averages (not averages)])}
+        (if averages "Hide averages" "Average")])]
     [:section {:className "slidden"}
-     [:button {:onclick #(emit [:set-up :basic])} "Basic"]
-     [:button {:onclick #(emit [:set-up :efficient])} "Efficient"]
-     [:button {:onclick #(emit [:set-up :basic+efficient])} "Basic & Efficient"]
-     [:button {:onclick #(emit [:set-up :constrained])} "Constrained"]
-     [:button {:onclick #(emit [:set-up :basic+efficient+constrained])} "Basic, Efficient, & Constrained"]
-     [:button {:onclick #(emit [:set-up :basic+efficient+constrained+fixed])} "Basic, Efficient, Constrained, & Fixed"]
-     ]]
+     [:button {:onclick #(emit [:setup :basic])} "Basic"]
+     [:button {:onclick #(emit [:setup :efficient])} "Efficient"]
+     [:button {:onclick #(emit [:setup :basic+efficient])} "Basic & Efficient"]
+     [:button {:onclick #(emit [:setup :constrained])} "Constrained"]
+     [:button {:onclick #(emit [:setup :basic+efficient+constrained])} "Basic, Efficient, & Constrained"]
+     [:button {:onclick #(emit [:setup :basic+efficient+constrained+fixed])} "Basic, Efficient, Constrained, & Fixed"]]])
+
+(defn ui [{{:keys [width height step dice scenarios averages]} :setup :keys [info? graphs?] :as model} emit]
+  [:main {}
+   [:div {:style {:position :fixed :left "5px" :top "5px"}}
+    [:div {} step " steps"]]
+   (controls model emit)
    [:svg {:id "space" :width "100%" :height "100%"}
     (for [{:keys [x y] :as d} dice]
       (when x
         [:g {:transform (translate x y)}
          (die d)]))
-    (map scenario scenarios)
+    (map #(scenario % info?) scenarios)
     (when (and width height graphs?)
       (graphs [width height] scenarios averages))]])

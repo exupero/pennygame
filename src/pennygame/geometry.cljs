@@ -67,3 +67,15 @@
         (if tc
           (recur (replace (shift tc) xs))
           xs)))))
+
+(defn merge-interval [a b]
+  (concat a (drop (count a) b)))
+
+(defn graph-scales
+  [data
+   {w :width h :height}
+   {rng :range domain :domain}]
+  (let [data (apply concat data)
+        domain (merge-interval domain (extent (map first data)))
+        rng (merge-interval rng (extent (map second data)))]
+    [(linear domain [0 w]) (linear rng [h 0])]))

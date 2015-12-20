@@ -21,8 +21,6 @@
 (defn prune-stats [stats]
   (select-keys stats [:wip :total-output :turns :percent-utilization]))
 
-(def scenario {:step 0 :dice s/dice :scenarios [s/basic s/efficient s/constrained s/fixed]})
-
 (defn stats [model]
   (->> model
     :scenarios
@@ -51,9 +49,9 @@
         c (atom 1)
         avg #(/ (+ (* @c %1) %2) (inc @c))
         step #(apply merge-stats-with avg %)]
-    (fn [scenario]
+    (fn [setup]
       (reset! curr
-        (->> (stats scenario)
+        (->> (stats setup)
           (zip-scenarios @curr)
           (map-vals #(map step %))))
       (swap! c inc)
