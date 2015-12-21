@@ -54,7 +54,7 @@
 
 (defn separate [t xs]
   (let [shift #(let [[a b] (sort %)
-                     dx (/ (- b a) 2)]
+                     dx (/ (- t (- b a)) 2)]
                  {a (- a dx)
                   b (+ b dx)})]
     (loop [xs xs]

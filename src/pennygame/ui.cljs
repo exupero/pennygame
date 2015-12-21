@@ -234,7 +234,7 @@
   (when (seq stats)
     (let [ys (->> stats
                (map #(-> % :data last coord second))
-               (g/separate 10))]
+               (g/separate 11))]
       (for [[{:keys [data]} y] (map vector stats ys)
             :let [[x] (coord (last data))]
             :when x]
