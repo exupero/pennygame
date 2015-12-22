@@ -1,4 +1,5 @@
 (ns pennygame.statistics
+  (:require-macros [pennygame.macros :refer [spy]])
   (:require [pennygame.states :as s]
             [pennygame.updates :as u]))
 
@@ -21,11 +22,12 @@
 (defn prune-stats [stats]
   (select-keys stats [:wip :total-output :turns :percent-utilization]))
 
-(defn stats [model]
-  (->> model
+(defn stats [setup]
+  (->> setup
     :scenarios
-    (map (comp #(map prune-stats %) :stats-history))
-    (zipmap [:basic :efficient :constrained :fixed])))
+    (map (juxt :name (comp #(map prune-stats %) :stats-history)))
+    (remove (comp nil? first))
+    (into {})))
 
 (defn map-vals [f m]
   (zipmap (keys m) (map f (vals m))))

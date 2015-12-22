@@ -7,7 +7,14 @@
             [pennygame.sizes :as s]
             [pennygame.dom :as dom]
             [pennygame.geometry :as g]
-            [pennygame.animations :as a]))
+            [pennygame.animations :as a]
+            [pennygame.statistics :as statistics]))
+
+(def scenario-name->color
+  {:basic       :red
+   :efficient   :green
+   :constrained :blue
+   :fixed       :purple})
 
 (defn pair [[x y]]
   (str x "," y))
@@ -219,9 +226,9 @@
               :text-anchor "middle"}
        (str "Total Output: " (stats :total-output 0))])))
 
-(defn scenario [{:keys [x color stations stats-history]} info?]
-  (when (and x color)
-    [:g {:class (str "scenario " (name color)) :transform (translate x 0)}
+(defn scenario [{nm :name :keys [x stations stats-history]} info?]
+  (when (and x nm)
+    [:g {:class (str "scenario " (name (scenario-name->color nm))) :transform (translate x 0)}
      (for [{{t :type} :productivity :keys [id y] :as s} (reverse stations)]
        [:g {:id id
             :class (str (name t) " productivity-" (name t))
@@ -243,36 +250,24 @@
                 :dy 4}
          (-> data last second formatter)]))))
 
-(def scenario-name->color
-  {:basic :red
-   :efficient :green
-   :constrained :blue
-   :fixed :purple})
-
 (defn graph
   [{w :width h :height :keys [x y]}
-   scenarios
-   averages
+   stats
    {f :accessor
     rng :range
     :keys [title formatter]
     :or {formatter identity}}]
   (let [p 30
         ih (- h (* 2 p))
-        stats (for [{:keys [color stats-history]} scenarios
-                    :when color]
-                {:color color
-                 :data (map-indexed #(vector %1 (f %2)) stats-history)})
-        avg-stats (for [[k xs] averages
-                        :let [data (map-indexed #(vector %1 (f %2)) xs)]]
-                    {:color (scenario-name->color k)
-                     :data data})
+        stats (for [[k xs] stats]
+                {:color (scenario-name->color k)
+                 :data (map-indexed #(vector %1 (f %2)) xs)})
         [sx sy] (g/graph-scales
-                  (concat (map :data stats) (map :data avg-stats))
+                  (map :data stats)
                   {:width (- w (* 2 p)) :height ih}
                   {:domain [] :range rng})
         coord #(vector (sx (first %)) (sy (second %)))]
-    [:g {:class (str "graph " (when averages "averaging"))
+    [:g {:class "graph"
          :transform (translate x y)}
      [:rect {:width w :height h}]
      [:text {:class "title"
@@ -281,37 +276,36 @@
              :dy 10}
       title]
      [:g {:transform (translate p p)}
-      (for [{:keys [color data]} avg-stats]
-        [:path {:class (str "average stroke " (name color))
+      (for [{:keys [color data]} stats]
+        [:path {:class "stroke outline"
                 :d (path (map coord data))}])
       (for [{:keys [color data]} stats]
         [:path {:class (str "history stroke " (name color))
                 :d (path (map coord data))}])
       (graph-labels stats coord formatter "history")
-      (graph-labels avg-stats coord formatter "average")
       [:line {:class "axis"
               :transform (translate 0 ih)
               :x2 (- w (* 2 p))}]
       [:line {:class "axis"
               :y2 ih}]]]))
 
-(defn graphs [dim scenarios averages]
+(defn graphs [dim stats]
   (let [[one two three four] (g/cells dim 4)]
     [:g {:id "graphs"}
-     (graph one scenarios averages
+     (graph one stats
             {:title "Work in Progress"
              :accessor :wip
              :range [0]
              :formatter #(.round js/Math %)})
-     (graph two scenarios averages
+     (graph two stats
             {:title "Total Output"
              :accessor :total-output
              :formatter #(.round js/Math %)})
-     (graph three scenarios averages
+     (graph three stats
             {:title "Inventory Turns"
              :accessor :turns
              :formatter #(.round js/Math %)})
-     (graph four scenarios averages
+     (graph four stats
             {:title "Utilization"
              :accessor :percent-utilization
              :range [0 1]
@@ -340,7 +334,7 @@
      [:button {:onclick #(emit [:setup :basic+efficient+constrained])} "Basic, Efficient, & Constrained"]
      [:button {:onclick #(emit [:setup :basic+efficient+constrained+fixed])} "Basic, Efficient, Constrained, & Fixed"]]])
 
-(defn ui [{{:keys [width height step dice scenarios averages]} :setup :keys [info? graphs?] :as model} emit]
+(defn ui [{{:keys [width height step dice scenarios averages] :as setup} :setup :keys [info? graphs?] :as model} emit]
   [:main {}
    [:div {:style {:position :fixed :left "5px" :top "5px"}}
     [:div {} step " steps"]]
@@ -352,4 +346,4 @@
          (die d)]))
     (map #(scenario % info?) scenarios)
     (when (and width height graphs?)
-      (graphs [width height] scenarios averages))]])
+      (graphs [width height] (or averages (statistics/stats setup))))]])

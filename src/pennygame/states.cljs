@@ -24,9 +24,15 @@
 
 (def dice [(die :type :supply) (die) (die) (die) (die)])
 
+(defn setup [& args]
+  (merge {:step 0
+          :dice dice
+          :scenarios []}
+         (apply hash-map args)))
+
 (def basic
   (scenario
-    :color :red
+    :name :basic
     :stations
     [(station :type :supply :die 0)
      (station :supplier 0 :die 1 :tracer-start true)
@@ -37,7 +43,7 @@
 
 (def efficient
   (scenario
-    :color :green
+    :name :efficient
     :stations
     [(station :type :supply :die 0 :productivity {:type :high})
      (station :supplier 0 :die 1 :productivity {:type :high} :tracer-start true)
@@ -48,7 +54,7 @@
 
 (def constrained
   (scenario
-    :color :blue
+    :name :constrained
     :stations
     [(station :type :supply :die 0 :productivity {:type :constrained :by-station 3 :use :capacity})
      (station :supplier 0 :die 1 :productivity {:type :high} :tracer-start true)
@@ -59,7 +65,7 @@
 
 (def fixed
   (scenario
-    :color :purple
+    :name :fixed
     :stations
     [(station :type :supply :die 0 :productivity {:type :constrained :by-station 3 :use :output})
      (station :supplier 0 :die 1 :productivity {:type :high} :tracer-start true)
@@ -69,10 +75,10 @@
      (station :type :distribution :supplier 4)]))
 
 (def setups
-  {:basic {:step 0 :dice dice :scenarios [basic (scenario) (scenario)]}
-   :efficient {:step 0 :dice dice :scenarios [(scenario) efficient (scenario)]}
-   :constrained {:step 0 :dice dice :scenarios [(scenario) (scenario) constrained]}
-   :basic+efficient {:step 0 :dice dice :scenarios [basic efficient (scenario)]}
-   :basic+efficient+constrained {:step 0 :dice dice :scenarios [basic efficient constrained]}
-   :basic+efficient+fixed {:step 0 :dice dice :scenarios [basic efficient fixed]}
-   :basic+efficient+constrained+fixed {:step 0 :dice dice :scenarios [basic efficient constrained fixed]}})
+  {:basic (setup :scenarios [basic (scenario) (scenario)])
+   :efficient (setup :scenarios [(scenario) efficient (scenario)])
+   :constrained (setup :scenarios [(scenario) (scenario) constrained])
+   :basic+efficient (setup :scenarios [basic efficient (scenario)])
+   :basic+efficient+constrained (setup :scenarios [basic efficient constrained])
+   :basic+efficient+fixed (setup :scenarios [basic efficient fixed])
+   :basic+efficient+constrained+fixed (setup :scenarios [basic efficient constrained fixed])})

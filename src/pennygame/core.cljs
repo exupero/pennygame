@@ -15,8 +15,8 @@
 
 (enable-console-print!)
 
-(defn dice-positions [model {w :width :keys [x]}]
-  (let [ss (->> model :scenarios (filter :color) first :stations (drop 1))
+(defn dice-positions [setup {w :width :keys [x]}]
+  (let [ss (->> setup :scenarios (filter :name) first :stations (drop 1))
         hs (map :height ss)
         ys (map :y ss)
         ds (fn [d y h]
@@ -25,7 +25,7 @@
                :y (+ y h (- 0 (/ w 2) sizes/penny))
                :width w
                :height w))]
-    (update model :dice (partial map ds) ys hs)))
+    (update setup :dice (partial map ds) ys hs)))
 
 (defonce actions (chan))
 (def emit #(put! actions %))

@@ -152,6 +152,12 @@ text.history, text.average {
   text-anchor: start;
 }
 
+.stroke.outline {
+  stroke: white;
+  fill: none;
+  stroke-width: 5;
+}
+
 .productivity-high .spout path { fill: lightgreen; }
 .productivity-constrained .spout path { fill: lightblue; }
 
