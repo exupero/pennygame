@@ -326,7 +326,7 @@
        [:button {:disabled (or (zero? step) running?)
                  :onclick #(emit [:averages (not averages)])}
         (if averages "Hide averages" "Average")])]
-    [:section {:className "slidden"}
+    [:section {:className "slidden wide"}
      [:button {:onclick #(emit [:setup :basic])} "Basic"]
      [:button {:onclick #(emit [:setup :efficient])} "Efficient"]
      [:button {:onclick #(emit [:setup :basic+efficient])} "Basic & Efficient"]
@@ -339,7 +339,7 @@
    [:div {:style {:position :fixed :left "5px" :top "5px"}}
     [:div {} step " steps"]]
    (controls model emit)
-   [:svg {:id "space" :width "100%" :height "100%"}
+   [:svg {:id "space" :width "100%" :height "99%"}
     (for [{:keys [x y] :as d} dice]
       (when x
         [:g {:transform (translate x y)}
