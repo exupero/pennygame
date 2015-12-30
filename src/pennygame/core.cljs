@@ -15,6 +15,17 @@
 
 (enable-console-print!)
 
+(defn on-visible-once [f]
+  (let [event (cond
+                (exists? js/document.hidden) "visibilitychange"
+                (exists? js/document.webkitHidden) "webkitvisibilitychange"
+                (exists? js/document.mozHidden) "mozvisibilitychange"
+                (exists? js/document.msHidden) "msvisibilitychange")
+        cb (fn cb []
+             (f)
+             (.removeEventListener js/document event cb))]
+    (.addEventListener js/document event cb)))
+
 (defn dice-positions [setup {w :width :keys [x]}]
   (let [ss (->> setup :scenarios (filter :name) first :stations (drop 1))
         hs (map :height ss)
@@ -58,12 +69,15 @@
   (go
     (<! (timeout 50))
     (let [size (juxt #(.-width %) #(.-height %))
-          [w h] (-> js/document (.getElementById "space") .getBoundingClientRect size)]
-      (put! actions [:size w h]))
-    (<! (timeout 100))
-    (put! actions :set-lengths)
-    (<! (timeout 100))
-    (put! actions :set-spacing)))
+          [w h :as dim] (some-> js/document (.getElementById "space") .getBoundingClientRect size)]
+      (if dim
+        (do
+          (put! actions [:size w h])
+          (<! (timeout 100))
+          (put! actions :set-lengths)
+          (<! (timeout 100))
+          (put! actions :set-spacing))
+        (on-visible-once initialize-setup)))))
 
 (defn generate-averages [original current]
   (let [average (statistics/averager current)
