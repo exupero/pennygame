@@ -241,13 +241,13 @@
   (when (seq stats)
     (let [ys (->> stats
                (map #(-> % :data last coord second))
-               (g/separate 11))]
+               (g/separate 18))]
       (for [[{:keys [data]} y] (map vector stats ys)
             :let [[x] (coord (last data))]
             :when x]
         [:text {:class (str "label " cls)
                 :transform (translate x y)
-                :dy 4}
+                :dy 7}
          (-> data last second formatter)]))))
 
 (defn graph
@@ -257,14 +257,15 @@
     rng :range
     :keys [title formatter]
     :or {formatter identity}}]
-  (let [p 30
-        ih (- h (* 2 p))
+  (let [hp 30
+        wp 50
+        ih (- h (* 2 hp))
         stats (for [[k xs] stats]
                 {:color (scenario-name->color k)
                  :data (map-indexed #(vector %1 (f %2)) xs)})
         [sx sy] (g/graph-scales
                   (map :data stats)
-                  {:width (- w (* 2 p)) :height ih}
+                  {:width (- w (* 2 wp)) :height ih}
                   {:domain [] :range rng})
         coord #(vector (sx (first %)) (sy (second %)))]
     [:g {:class "graph"
@@ -275,7 +276,7 @@
              :y (/ h 2)
              :dy 10}
       title]
-     [:g {:transform (translate p p)}
+     [:g {:transform (translate wp hp)}
       (for [{:keys [color data]} stats]
         [:path {:class "stroke outline"
                 :d (path (map coord data))}])
@@ -285,7 +286,7 @@
       (graph-labels stats coord formatter "history")
       [:line {:class "axis"
               :transform (translate 0 ih)
-              :x2 (- w (* 2 p))}]
+              :x2 (- w (* 2 wp))}]
       [:line {:class "axis"
               :y2 ih}]]]))
 
