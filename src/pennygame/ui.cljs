@@ -171,13 +171,15 @@
                                [entrance-left sp]
                                [entrance-left top]])}]
       (when info?
-        [:text {:transform (translate (/ w 2) bottom)
+        [:text {:class "infotext fill"
+                :transform (translate (/ w 2) bottom)
                 :dy -5} label])])))
 
 (defmulti station :type)
 
 (defmethod station :supply [{w :width :keys [bin-h spout-y stats] :or {stats {}}} info?]
-  (spout (+ 10 spout-y) w (str "Total Input: " (stats :total-input 0)) info?))
+  (let [in (stats :total-input 0)]
+    (spout (+ 10 spout-y) w (if (zero? in) "In" in) info?)))
 
 (defmethod station :processing [{w :width :keys [bin-h] :as s} info?]
   (list
@@ -190,49 +192,68 @@
        :dropping (when (s :dropping?) (s :incoming))
        :path (dom/penny-path (s :id))
        :spout-y (s :source-spout-y)})
-    (spout (s :spout-y) w (str "Under-utilized: " (s :under-utilized)) info?)))
+    (spout (s :spout-y) w #_(str "Under-utilized: " (s :under-utilized)) info?)))
 
 (defmethod station :distribution
   [{w :width :keys [id bin-h source-spout-y stats incoming dropping?]
     :or {stats {}}}
    info?]
-  (list
-    (let [ramp (dom/ramp id)]
-      (when (and ramp dropping?)
-        (map-indexed
-          (fn [i p]
-            (penny [(/ s/penny 2) source-spout-y] p
-                   (a/path ramp
-                           (fn [el [x y]]
-                             (.setAttribute el "transform" (translate x y)))
-                           {:duration (@settings/timing :drop)
-                            :delay (* i 50)
-                            :easing a/ease-in})))
-          incoming)))
-    [:path {:class "ramp"
-            :d (str "M" (pair [(/ s/penny 2) source-spout-y])
-                    "C" (pair [(/ s/penny 2) (/ bin-h 2)])
-                    "," (pair [(/ s/penny 2) (/ bin-h 2)])
-                    "," (pair [(/ w 2) (/ bin-h 2)]))}]
-    [:image {:xlink:href js/truckSrc
-             :width w
-             :height bin-h}]
-    (when info?
-      [:text {:dx (/ w 2)
-              :dy -4
-              :text-anchor "middle"}
-       (str "Total Output: " (stats :total-output 0))])))
+  (let [truck-w (* bin-h 967 (/ 265))]
+    (list
+      (let [ramp (dom/ramp id)]
+        (when (and ramp dropping?)
+          (map-indexed
+            (fn [i p]
+              (penny [(/ s/penny 2) source-spout-y] p
+                     (a/path ramp
+                             (fn [el [x y]]
+                               (.setAttribute el "transform" (translate x y)))
+                             {:duration (@settings/timing :drop)
+                              :delay (* i 50)
+                              :easing a/ease-in})))
+            incoming)))
+      [:path {:class "ramp"
+              :d (str "M" (pair [(/ s/penny 2) source-spout-y])
+                      "C" (pair [(/ s/penny 2) (/ bin-h 2)])
+                      "," (pair [(/ s/penny 2) (/ bin-h 2)])
+                      "," (pair [(+ (/ w 2) truck-w) (/ bin-h 2)]))}]
+      [:image {:xlink:href js/truckSrc
+               :x (+ (/ w 2) (/ truck-w 2))
+               :height bin-h}]
+      (when info?
+        (let [out (stats :total-output 0)
+              delivery (stats :delivery 0)]
+          [:g {}
+           [:text {:class "infotext fill"
+                   :dy 24}
+            (if (zero? delivery) "Delivery" delivery)]
+           [:text {:class "infotext fill"
+                   :dx w
+                   :dy 24
+                   :text-anchor "end"}
+            (if (zero? out) "Out" out)]])))))
 
-(defn scenario [{nm :name :keys [x stations stats-history]} info?]
-  (when (and x nm)
-    [:g {:class (str "scenario " (name (scenario-name->color nm))) :transform (translate x 0)}
-     (for [{{t :type} :productivity :keys [id y] :as s} (reverse stations)]
-       [:g {:id id
-            :class (str (name t) " productivity-" (name t))
-            :transform (translate 0 y)}
-        (if (seq stats-history)
-          (station (assoc s :stats (peek stats-history)) info?)
-          (station s info?))])]))
+(defn scenario [{nm :name w :width h :height :keys [x stations stats-history]} info?]
+  (let [stats (when (seq stats-history)
+                (peek stats-history))]
+    (when (and x nm)
+      [:g {:class (str "scenario " (name (scenario-name->color nm)))
+           :transform (translate x 0)}
+       (for [{{t :type} :productivity :keys [id y] :as s} (reverse stations)]
+         [:g {:id id
+              :class (str (name t) " productivity-" (name t))
+              :transform (translate 0 y)}
+          (if (seq stats-history)
+            (station (assoc s :stats stats) info?)
+            (station s info?))])
+       (when info?
+         (let [wip (:wip stats 0)]
+           [:text {:class "infotext fill"
+                   :x (/ w 2)
+                   :y (/ h 2)
+                   :dy 26
+                   :text-anchor "middle"}
+            (if (zero? wip) "WIP" wip)]))])))
 
 (defn graph-labels [stats coord formatter cls]
   (when (seq stats)

@@ -163,6 +163,12 @@ text.history, text.average {
   stroke-width: 5;
 }
 
+.infotext {
+  font-size: 42pt;
+  font-weight: bold;
+  stroke: white;
+}
+
 .productivity-high .spout path { fill: lightgreen; }
 .productivity-constrained .spout path { fill: lightblue; }
 
