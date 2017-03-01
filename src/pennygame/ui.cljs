@@ -176,11 +176,8 @@
 
 (defmulti station :type)
 
-(defmethod station :supply
-  [{w :width :keys [bin-h spout-y stats]
-    :or {stats {}}}
-   info?]
-  (spout spout-y w (str "Total Input: " (stats :total-input 0)) info?))
+(defmethod station :supply [{w :width :keys [bin-h spout-y stats] :or {stats {}}} info?]
+  (spout (+ 10 spout-y) w (str "Total Input: " (stats :total-input 0)) info?))
 
 (defmethod station :processing [{w :width :keys [bin-h] :as s} info?]
   (list
@@ -315,25 +312,25 @@
 (defn controls [{{:keys [step averages]} :setup :keys [info? graphs? running?]} emit]
   [:div {:id "controls"}
     [:section {:className "slidden"}
-     [:button {:onclick #(emit [:run 1 true])} "Roll"]
-     [:button {:onclick #(emit [:run 100 true])} "Run"]
-     [:button {:onclick #(emit [:run 100 false])} "Run Fast"]
-     [:button {:onclick #(emit [:execute 100])} "Run Instantly"]
-     [:button {:onclick #(emit [:info (not info?)])}
+     [:button {:onclick #(emit :run 1 true)} "Roll"]
+     [:button {:onclick #(emit :run 100 true)} "Run"]
+     [:button {:onclick #(emit :run 100 false)} "Run Fast"]
+     [:button {:onclick #(emit :execute 100)} "Run Instantly"]
+     [:button {:onclick #(emit :info (not info?))}
       (if info? "Hide info" "Show info")]
-     [:button {:onclick #(emit [:graphs (not graphs?)])}
+     [:button {:onclick #(emit :graphs (not graphs?))}
       (if graphs? "Hide graphs" "Show graphs")]
      (when graphs?
        [:button {:disabled (or (zero? step) running?)
-                 :onclick #(emit [:averages (not averages)])}
+                 :onclick #(emit :averages (not averages))}
         (if averages "Hide averages" "Average")])]
     [:section {:className "slidden wide"}
-     [:button {:onclick #(emit [:setup :basic])} "Basic"]
-     [:button {:onclick #(emit [:setup :efficient])} "Efficient"]
-     [:button {:onclick #(emit [:setup :basic+efficient])} "Basic & Efficient"]
-     [:button {:onclick #(emit [:setup :constrained])} "Constrained"]
-     [:button {:onclick #(emit [:setup :basic+efficient+constrained])} "Basic, Efficient, & Constrained"]
-     [:button {:onclick #(emit [:setup :basic+efficient+constrained+fixed])} "Basic, Efficient, Constrained, & Fixed"]]])
+     [:button {:onclick #(emit :setup :basic)} "Basic"]
+     [:button {:onclick #(emit :setup :efficient)} "Efficient"]
+     [:button {:onclick #(emit :setup :basic+efficient)} "Basic & Efficient"]
+     [:button {:onclick #(emit :setup :constrained)} "Constrained"]
+     [:button {:onclick #(emit :setup :basic+efficient+constrained)} "Basic, Efficient, & Constrained"]
+     [:button {:onclick #(emit :setup :basic+efficient+constrained+fixed)} "Basic, Efficient, Constrained, & Fixed"]]])
 
 (defn ui [{{:keys [width height step dice scenarios averages] :as setup} :setup :keys [info? graphs?] :as model} emit]
   [:main {}

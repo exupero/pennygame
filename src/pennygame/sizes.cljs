@@ -8,11 +8,6 @@
    :processing 4
    :distribution 1})
 
-(def top-adjust
-  {:supply -1
-   :processing 0
-   :distribution 0})
-
 (def bin-h-
   {:supply (* 2 penny)
    :processing (* 2 penny)
@@ -26,25 +21,20 @@
 (defn stack [f ys x]
   (conj ys (f (peek ys) x)))
 
-(defn station [pos s]
-  (merge s pos))
-
 (defn bin-height [{t :type} h]
   (let [bh (- h (bin-h- t))]
     (- bh (mod bh penny))))
 
 (defn stations [{w :width h :height} ss]
   (let [hs (heights h ss)]
-    (map (fn [{t :type :as s} y h bh]
-           (station {:y (+ y (top-adjust t))
+    (map (fn [{t :type :as s} h y bh]
+           (merge s {:y y
                      :width w
                      :bin-h bh
                      :spout-y bh
-                     :source-spout-y (- (* 1.5 penny))}
-                    s))
-         ss
+                     :source-spout-y (- (* 1.5 penny))}))
+         ss hs
          (reduce (partial stack +) [0] hs)
-         hs
          (map bin-height ss hs))))
 
 (defn scenario [{w :width h :height :as pos} {ss :stations :as s}]

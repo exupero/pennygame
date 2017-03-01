@@ -4,7 +4,7 @@ html, body {
   font-family: 'Helvetica Neue', Arial, sans-serif;
 }
 
-main {
+#app, main {
   height: 100%;
 }
 
