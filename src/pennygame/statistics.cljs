@@ -20,7 +20,7 @@
       m)))
 
 (defn prune-stats [stats]
-  (select-keys stats [:wip :total-output :turns :percent-utilization]))
+  (select-keys stats [:total-input :wip :total-output :turns :percent-utilization :delivery]))
 
 (defn stats [setup]
   (->> setup

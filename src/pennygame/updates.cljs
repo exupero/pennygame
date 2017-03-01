@@ -118,8 +118,8 @@
 
 (defn stats
   [{:keys [stations]}
-   {:keys [turns total-input total-output total-utilization]
-    :or {turns 0 total-utilization [0 0]}}]
+   {:keys [step turns delivery delivered total-input total-output total-utilization]
+    :or {step 0 turns 0 delivery 0 delivered 0 total-utilization [0 0]}}]
   (let [input (-> stations first :processed count)
         output (-> stations butlast last :processed count)
         utilization (->> stations
@@ -131,8 +131,11 @@
               (map count)
               (reduce +))
         total-utilization (map + total-utilization utilization)]
-    {:wip wip
+    {:step (inc step)
+     :wip wip
      :turns (if (tracer-done? stations) (inc turns) turns)
+     :delivery (if (tracer-done? stations) (- step delivered) delivery)
+     :delivered (if (tracer-done? stations) step delivered)
      :total-input (+ total-input input)
      :total-output (+ total-output output)
      :total-utilization total-utilization

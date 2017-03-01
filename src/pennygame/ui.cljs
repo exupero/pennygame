@@ -291,23 +291,23 @@
   (let [[one two three four] (g/cells dim 4)]
     [:g {:id "graphs"}
      (graph one stats
-            {:title "Work in Progress"
-             :accessor :wip
-             :range [0]
-             :formatter #(.round js/Math %)})
+            {:title "Total Input"
+             :accessor :total-input
+             :formatter js/Math.round})
      (graph two stats
             {:title "Total Output"
              :accessor :total-output
-             :formatter #(.round js/Math %)})
+             :formatter js/Math.round})
      (graph three stats
-            {:title "Inventory Turns"
-             :accessor :turns
-             :formatter #(.round js/Math %)})
+            {:title "Work in Progress"
+             :accessor :wip
+             :range [0]
+             :formatter js/Math.round})
      (graph four stats
-            {:title "Utilization"
-             :accessor :percent-utilization
-             :range [0 1]
-             :formatter #(str (.round js/Math (* 100 %)) "%")})]))
+            {:title "Days to Delivery"
+             :accessor :delivery
+             :formatter js/Math.round})
+     ]))
 
 (defn controls [{{:keys [step averages]} :setup :keys [info? graphs? running?]} emit]
   [:div {:id "controls"}
