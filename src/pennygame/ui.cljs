@@ -219,6 +219,7 @@
                       "," (pair [(+ (/ w 2) truck-w) (/ bin-h 2)]))}]
       [:image {:xlink:href js/truckSrc
                :x (+ (/ w 2) (/ truck-w 2))
+               :width truck-w
                :height bin-h}]
       (when info?
         (let [out (stats :total-output 0)
@@ -345,18 +346,15 @@
        [:button {:disabled (or (zero? step) running?)
                  :onclick #(emit :averages (not averages))}
         (if averages "Hide averages" "Average")])]
-    [:section {:className "slidden wide"}
-     [:button {:onclick #(emit :setup :basic)} "Basic"]
-     [:button {:onclick #(emit :setup :efficient)} "Efficient"]
-     [:button {:onclick #(emit :setup :basic+efficient)} "Basic & Efficient"]
-     [:button {:onclick #(emit :setup :constrained)} "Constrained"]
-     [:button {:onclick #(emit :setup :basic+efficient+constrained)} "Basic, Efficient, & Constrained"]
-     [:button {:onclick #(emit :setup :basic+efficient+constrained+fixed)} "Basic, Efficient, Constrained, & Fixed"]]])
+    [:section {:className "slidden"}
+     [:button {:onclick #(emit :toggle-scenario :basic 0)} "Basic"]
+     [:button {:onclick #(emit :toggle-scenario :efficient 1)} "Efficient"]
+     [:button {:onclick #(emit :toggle-scenario :constrained 2)} "Constrained"]]])
 
 (defn ui [{{:keys [width height step dice scenarios averages] :as setup} :setup :keys [info? graphs?] :as model} emit]
   [:main {}
    [:div {:style {:position :fixed :left "5px" :top "5px"}}
-    [:div {} step " steps"]]
+    [:div {} [:span {} step] " days"]]
    (controls model emit)
    [:svg {:id "space" :width "100%" :height "99%"}
     (for [{:keys [x y] :as d} dice]

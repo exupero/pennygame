@@ -19,13 +19,10 @@
       (recur (inc i) (step m))
       m)))
 
-(defn prune-stats [stats]
-  (select-keys stats [:total-input :wip :total-output :turns :percent-utilization :delivery]))
-
 (defn stats [setup]
   (->> setup
     :scenarios
-    (map (juxt :name (comp #(map prune-stats %) :stats-history)))
+    (map (juxt :name :stats-history))
     (remove (comp nil? first))
     (into {})))
 

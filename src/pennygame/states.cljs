@@ -1,10 +1,5 @@
 (ns pennygame.states)
 
-(defn die [& args]
-  (merge {:value 0
-          :type :processing}
-         (apply hash-map args)))
-
 (defn station [& args]
   (merge {:id (gensym "station")
           :type :processing
@@ -20,14 +15,6 @@
 (defn scenario [& args]
   (merge {:stats-history []
           :stations []}
-         (apply hash-map args)))
-
-(def dice [(die :type :supply) (die) (die) (die) (die)])
-
-(defn setup [& args]
-  (merge {:step 0
-          :dice dice
-          :scenarios []}
          (apply hash-map args)))
 
 (def basic
@@ -74,11 +61,7 @@
      (station :supplier 3 :die 4 :productivity {:type :high} :tracer-reset 0)
      (station :type :distribution :supplier 4)]))
 
-(def setups
-  {:basic (setup :scenarios [basic (scenario) (scenario)])
-   :efficient (setup :scenarios [(scenario) efficient (scenario)])
-   :constrained (setup :scenarios [(scenario) (scenario) constrained])
-   :basic+efficient (setup :scenarios [basic efficient (scenario)])
-   :basic+efficient+constrained (setup :scenarios [basic efficient constrained])
-   :basic+efficient+fixed (setup :scenarios [basic efficient fixed])
-   :basic+efficient+constrained+fixed (setup :scenarios [basic efficient constrained fixed])})
+(def scenarios
+  {:basic basic
+   :efficient efficient
+   :constrained constrained})

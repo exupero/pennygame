@@ -1,8 +1,7 @@
 (ns pennygame.core
   (:require-macros [cljs.core.async.macros :refer [go]]
                    [pennygame.macros :refer [spy]])
-  (:require [cljs.core.async :as async :refer [chan >! <! put! timeout alts!]]
-            [cljs.core.match :refer-macros [match]]
+  (:require [cljs.core.async :as async :refer [<! timeout]]
             [vdom.core :refer [renderer]]
             [pennygame.animations :as animations]
             [pennygame.dom :as dom]
@@ -38,8 +37,9 @@
                :height w))]
     (update setup :dice (partial map ds) ys hs)))
 
+(defonce model (atom {:scenarios [nil nil nil]}))
+
 (defmulti emit (fn [t & _] t))
-(defonce model (atom {}))
 
 (defn run-steps [n animations?]
   (go
@@ -92,13 +92,25 @@
           (<! (timeout dt))
           (recur (inc i)))))))
 
-(defmethod emit :setup [_ scenario]
+(defn die [& args]
+  (merge {:value 0
+          :type :processing}
+         (apply hash-map args)))
+
+(defmethod emit :toggle-scenario [_ scenario-name slot]
   (initialize-setup)
-  (let [setup (-> states/setups scenario u/initialize-tracer)]
-    (swap! model assoc
-           :setup setup
-           :original-setup setup
-           :running? false)))
+  (swap! model
+         (fn [m]
+           (let [scenarios (update (m :scenarios) slot #(when-not % (states/scenarios scenario-name)))
+                 setup (u/initialize-tracer
+                         {:step 0
+                          :dice [(die :type :supply) (die) (die) (die) (die)]
+                          :scenarios (map #(or % (states/scenario)) scenarios)})]
+             (assoc m
+                    :setup setup
+                    :original-setup setup
+                    :scenarios scenarios
+                    :running? false)))))
 
 (defmethod emit :size [_ width height]
   (let [left 150]
@@ -189,6 +201,9 @@
       (render! model))))
 
 (defonce initial-model
-  (emit :setup :basic))
+  (do
+    (emit :toggle-scenario :basic 0)
+    (emit :toggle-scenario :efficient 1)
+    (emit :toggle-scenario :constrained 2)))
 
 (render! @model)

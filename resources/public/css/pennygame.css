@@ -50,11 +50,6 @@ button:last-child {
   transition: left 0.25s ease;
 }
 
-.slidden.wide {
-  width: 20rem;
-  left: -19.5rem;
-}
-
 .slidden:hover {
   left: 0;
 }
