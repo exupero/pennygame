@@ -10,12 +10,6 @@
             [pennygame.animations :as a]
             [pennygame.statistics :as statistics]))
 
-(def scenario-name->color
-  {:basic       :red
-   :efficient   :green
-   :constrained :blue
-   :fixed       :purple})
-
 (defn pair [[x y]]
   (str x "," y))
 
@@ -58,6 +52,9 @@
 
 (defn translate [x y]
   (str "translate(" x "," y ")"))
+
+(defn rotate [x]
+  (str "rotate(" x ")"))
 
 (defn die [{w :width h :height :keys [x y value]}]
   (let [half (/ w 2)]
@@ -175,7 +172,7 @@
                 :transform (translate (/ w 2) bottom)
                 :dy -5} label])])))
 
-(defmulti station :type)
+(defmulti station (fn [a _ _] (:type a)))
 
 (defmethod station :supply [{w :width :keys [bin-h spout-y stats] :or {stats {}}} info?]
   (let [in (stats :total-input 0)]
@@ -227,7 +224,7 @@
           [:g {}
            [:text {:class "infotext fill"
                    :dy 24}
-            (if (zero? delivery) "Delivery" delivery)]
+            (if (zero? delivery) "Days" delivery)]
            [:text {:class "infotext fill"
                    :dx w
                    :dy 24
@@ -238,11 +235,11 @@
   (let [stats (when (seq stats-history)
                 (peek stats-history))]
     (when (and x nm)
-      [:g {:class (str "scenario " (name (scenario-name->color nm)))
+      [:g {:class (str "scenario " (name nm))
            :transform (translate x 0)}
-       (for [{{t :type} :productivity :keys [id y] :as s} (reverse stations)]
+       (for [{{t :type} :productivity :keys [id y bottleneck?] :as s} (reverse stations)]
          [:g {:id id
-              :class (str (name t) " productivity-" (name t))
+              :class (str (name t) " productivity-" (name t) " " (when bottleneck? "bottleneck"))
               :transform (translate 0 y)}
           (if (seq stats-history)
             (station (assoc s :stats stats) info?)
@@ -280,7 +277,7 @@
         wp 50
         ih (- h (* 2 hp))
         stats (for [[k xs] stats]
-                {:color (scenario-name->color k)
+                {:scenario k
                  :data (map-indexed #(vector %1 (f %2)) xs)})
         [sx sy] (g/graph-scales
                   (map :data stats)
@@ -296,11 +293,11 @@
              :dy 10}
       title]
      [:g {:transform (translate wp hp)}
-      (for [{:keys [color data]} stats]
+      (for [{:keys [scenario data]} stats]
         [:path {:class "stroke outline"
                 :d (path (map coord data))}])
-      (for [{:keys [color data]} stats]
-        [:path {:class (str "history stroke " (name color))
+      (for [{:keys [scenario data]} stats]
+        [:path {:class (str "history stroke " (name scenario))
                 :d (path (map coord data))}])
       (graph-labels stats coord formatter "history")
       [:line {:class "axis"
@@ -349,7 +346,10 @@
     [:section {:className "slidden"}
      [:button {:onclick #(emit :toggle-scenario :basic 0)} "Basic"]
      [:button {:onclick #(emit :toggle-scenario :efficient 1)} "Efficient"]
-     [:button {:onclick #(emit :toggle-scenario :constrained 2)} "Constrained"]]])
+     [:button {:onclick #(emit :toggle-scenario :constrained 2)} "Constrained"]
+     [:hr {}]
+     [:button {:onclick #(emit :reset)} "Reset"]
+     [:button {:onclick #(emit :generate-new)} "Generate New"]]])
 
 (defn ui [{{:keys [width height step dice scenarios averages] :as setup} :setup :keys [info? graphs?] :as model} emit]
   [:main {}
@@ -357,6 +357,15 @@
     [:div {} [:span {} step] " days"]]
    (controls model emit)
    [:svg {:id "space" :width "100%" :height "99%"}
+    [:defs {}
+     [:pattern {:id "caution"
+                :x 0 :y 0
+                :width 30 :height 30
+                :patternUnits "userSpaceOnUse"}
+      [:rect {:width 30 :height 30 :fill "#777"}]
+      [:line {:x1 -10 :y1 10 :x2 10 :y2 -10 :stroke "yellow" :stroke-width 10}]
+      [:line {:x1 0 :y1 30 :x2 30 :y2 0 :stroke "yellow" :stroke-width 10}]
+      [:line {:x1 20 :y1 40 :x2 40 :y2 20 :stroke "yellow" :stroke-width 10}]]]
     (for [{:keys [x y] :as d} dice]
       (when x
         [:g {:transform (translate x y)}

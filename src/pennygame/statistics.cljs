@@ -1,22 +1,23 @@
 (ns pennygame.statistics
   (:require-macros [pennygame.macros :refer [spy]])
-  (:require [pennygame.states :as s]
+  (:require [rand-cljc.core :as rng]
+            [pennygame.states :as s]
             [pennygame.updates :as u]))
 
-(defn step [model]
+(defn step [rng model]
   (-> model
     (update :step inc)
-    (u/roll-dice (repeatedly #(->> (js/Math.random) (* 6) inc int)))
+    (u/roll-dice (repeatedly #(inc (rng/rand-int rng 6))))
     u/determine-capacities
     u/transfer-to-processed
     u/take-supplier-processed
     u/integrate-incoming
     u/stats-history))
 
-(defn run [limit model]
+(defn run [rng limit model]
   (loop [i 0 m (u/initialize-tracer model)]
     (if (< i limit)
-      (recur (inc i) (step m))
+      (recur (inc i) (step rng m))
       m)))
 
 (defn stats [setup]

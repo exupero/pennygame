@@ -7,6 +7,7 @@
                  [org.clojure/clojurescript "1.7.122" :exclusions [org.apache.ant/ant]]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]
                  [com.rpl/specter "0.8.0"]
+                 [rand-cljc  "0.1.0"]
                  [vdom "0.2.1-SNAPSHOT"]]
   :plugins [[lein-cljsbuild "0.3.2"]
             [lein-figwheel "0.4.0"]]

@@ -1,4 +1,5 @@
-(ns pennygame.states)
+(ns pennygame.states
+  (:require-macros [pennygame.macros :refer [spy]]))
 
 (defn station [& args]
   (merge {:id (gensym "station")
@@ -35,7 +36,7 @@
     [(station :type :supply :die 0 :productivity {:type :high})
      (station :supplier 0 :die 1 :productivity {:type :high} :tracer-start true)
      (station :supplier 1 :die 2 :productivity {:type :high})
-     (station :supplier 2 :die 3)
+     (station :supplier 2 :die 3 :bottleneck? true)
      (station :supplier 3 :die 4 :productivity {:type :high} :tracer-reset 0)
      (station :type :distribution :supplier 4)]))
 
@@ -43,10 +44,10 @@
   (scenario
     :name :constrained
     :stations
-    [(station :type :supply :die 0 :productivity {:type :constrained :by-station 3 :use :capacity})
+    [(station :type :supply :die 0 :productivity {:type :constrained :by-station 3 :use :capacity} :bottleneck? true)
      (station :supplier 0 :die 1 :productivity {:type :high} :tracer-start true)
      (station :supplier 1 :die 2 :productivity {:type :high})
-     (station :supplier 2 :die 3)
+     (station :supplier 2 :die 3 :bottleneck? true)
      (station :supplier 3 :die 4 :productivity {:type :high} :tracer-reset 0)
      (station :type :distribution :supplier 4)]))
 

@@ -71,7 +71,7 @@
     :processed (take capacity pennies)))
 
 (defmethod process :supply [{:keys [capacity] :as station}]
-  (assoc station :processed (repeat capacity {})))
+  (assoc station :processed (repeat capacity :penny)))
 
 (defn new-tracer [scenario]
   (let [i (first (s/select [:stations s/ALL #(:tracer-reset %) :tracer-reset] scenario))]

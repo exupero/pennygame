@@ -164,15 +164,12 @@ text.history, text.average {
   stroke: white;
 }
 
-.productivity-high .spout path { fill: lightgreen; }
-.productivity-constrained .spout path { fill: lightblue; }
+.bottleneck .spout path { fill: url(#caution); }
 
-.red .fill, .red.fill       { fill: red; }
-.green .fill, .green.fill   { fill: limegreen; }
-.blue .fill, .blue.fill     { fill: dodgerblue; }
-.purple .fill, .purple.fill { fill: violet; }
+.basic .fill, .basic.fill             { fill: red; }
+.efficient .fill, .efficient.fill     { fill: fuchsia; }
+.constrained .fill, .constrained.fill { fill: dodgerblue; }
 
-.red .stroke, .red.stroke       { stroke: red; }
-.green .stroke, .green.stroke   { stroke: limegreen; }
-.blue .stroke, .blue.stroke     { stroke: dodgerblue; }
-.purple .stroke, .purple.stroke { stroke: violet; }
+.basic .stroke, .basic.stroke             { stroke: red; }
+.efficient .stroke, .efficient.stroke     { stroke: fuchsia; }
+.constrained .stroke, .constrained.stroke { stroke: dodgerblue; }

@@ -2,6 +2,8 @@
   (:require-macros [cljs.core.async.macros :refer [go]]
                    [pennygame.macros :refer [spy]])
   (:require [cljs.core.async :as async :refer [<! timeout]]
+            [clojure.string :as string]
+            [rand-cljc.core :as rng]
             [vdom.core :refer [renderer]]
             [pennygame.animations :as animations]
             [pennygame.dom :as dom]
@@ -37,7 +39,15 @@
                :height w))]
     (update setup :dice (partial map ds) ys hs)))
 
-(defonce model (atom {:scenarios [nil nil nil]}))
+(defonce model
+  (let [seed (let [s (string/replace js/location.hash #"#" "")]
+               (when-not (string/blank? s)
+                 (js/parseInt s)))
+        seed (or seed (rand-int 100000000))]
+    (set! (.-hash js/location) seed)
+    (atom {:scenarios [nil nil nil]
+           :seed seed
+           :rng (rng/rng seed)})))
 
 (defmulti emit (fn [t & _] t))
 
@@ -65,7 +75,7 @@
         (emit :run-next n animations?)
         (emit :running false)))))
 
-(defn initialize-setup []
+(defn initialize-setup! []
   (go
     (<! (timeout 50))
     (let [size (juxt #(.-width %) #(.-height %))
@@ -77,9 +87,9 @@
           (emit :set-lengths)
           (<! (timeout 100))
           (emit :set-spacing))
-        (on-visible-once initialize-setup)))))
+        (on-visible-once initialize-setup!)))))
 
-(defn generate-averages [original current]
+(defn generate-averages [rng original current]
   (let [average (statistics/averager current)
         steps (current :step)
         dt 100]
@@ -88,7 +98,7 @@
       (<! (timeout dt))
       (loop [i 0]
         (when (< i 50)
-          (emit :average (average (statistics/run steps original)))
+          (emit :average (average (statistics/run rng steps original)))
           (<! (timeout dt))
           (recur (inc i)))))))
 
@@ -98,7 +108,7 @@
          (apply hash-map args)))
 
 (defmethod emit :toggle-scenario [_ scenario-name slot]
-  (initialize-setup)
+  (initialize-setup!)
   (swap! model
          (fn [m]
            (let [scenarios (update (m :scenarios) slot #(when-not % (states/scenarios scenario-name)))
@@ -135,9 +145,10 @@
 (defmethod emit :roll [_]
   (swap! model
          (fn [m]
-           (-> m
-             (update-in [:setup :step] inc)
-             (update :setup u/roll-dice (repeatedly #(->> (js/Math.random) (* 6) inc int)))))))
+           (let [rng (m :rng)]
+             (-> m
+               (update-in [:setup :step] inc)
+               (update :setup u/roll-dice (repeatedly #(spy (inc (rng/rand-int rng 6))))))))))
 
 (defmethod emit :run [_ n animations?]
   (run-steps n animations?)
@@ -173,7 +184,7 @@
   @model)
 
 (defmethod emit :execute [_ n]
-  (swap! model update :setup #(statistics/run n %)))
+  (swap! model update :setup #(statistics/run (@model :rng) n %)))
 
 (defmethod emit :info [_ v]
   (swap! model assoc :info? v))
@@ -183,13 +194,32 @@
 
 (defmethod emit :averages [_ v]
   (if v
-    (do
-      (generate-averages (:original-setup @model) (:setup @model))
+    (let [{:keys [rng setup original-setup]} @model]
+      (generate-averages rng original-setup setup)
       @model)
     (swap! model update :setup dissoc :averages)))
 
 (defmethod emit :average [_ avg]
   (swap! model assoc-in [:setup :averages] avg))
+
+(defmethod emit :reset [_]
+  (swap! model
+         (fn [m]
+           (assoc m
+                  :setup (m :original-setup)
+                  :rng (rng/rng (m :seed)))))
+  (initialize-setup!))
+
+(defmethod emit :generate-new [_]
+  (let [seed (rand-int 100000000)]
+    (set! (.-hash js/location) seed)
+    (swap! model
+           (fn [m]
+             (assoc m
+                    :setup (m :original-setup)
+                    :seed seed
+                    :rng (rng/rng seed))))
+    (initialize-setup!)))
 
 (defonce render!
   (let [r (renderer (.getElementById js/document "app"))]
@@ -204,6 +234,7 @@
   (do
     (emit :toggle-scenario :basic 0)
     (emit :toggle-scenario :efficient 1)
-    (emit :toggle-scenario :constrained 2)))
+    (emit :toggle-scenario :constrained 2)
+    (emit :info true)))
 
 (render! @model)
