@@ -35,6 +35,10 @@ button:last-child {
   position: fixed;
 }
 
+#days {
+  margin-left: 2.5rem;
+}
+
 .slidden {
   box-sizing: border-box;
   margin-top: 2rem;

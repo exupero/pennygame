@@ -11,23 +11,28 @@
 (defn enqueue! [f]
   (swap! queue assoc (gensym "animation") f))
 
-(defn remove! [id]
+(defn dequeue! [id]
   (swap! queue dissoc id))
 
-(defn run []
+(defn run [speed]
   (let [dt (/ 1000 fps)]
     (go
       (<! (timeout 0))
       (loop [t 0]
         (when (seq @queue)
           (doseq [[id f] @queue]
-            (when-not (f t)
-              (remove! id)))
+            (when-not (f (* t speed))
+              (dequeue! id)))
           (<! (timeout dt))
           (recur (+ t dt)))))))
 
 (defn ease-in [x]
   (* x x))
+
+(defn ease-in-out [x]
+  (if (< x 0.5)
+    (* 2 x x)
+    (- (* x (- 4 (* 2 x))) 1)))
 
 (defn tweener [el f {wait :delay :keys [duration easing]
                      :or {wait 0 easing identity}}]

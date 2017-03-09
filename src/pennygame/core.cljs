@@ -51,29 +51,42 @@
 
 (defmulti emit (fn [t & _] t))
 
-(defn run-steps [n animations?]
-  (go
-    (emit :roll)
-    (emit :determine-capacity)
-    (when animations?
-      (emit :intaking true)
-      (<! (animations/run))
-      (emit :intaking false))
-    (emit :transfer-to-processed)
-    (emit :transfer-to-next-station)
-    (emit :set-spacing)
-    (when animations?
-      (emit :dropping true)
-      (<! (animations/run))
-      (emit :dropping false))
-    (emit :integrate)
-    (emit :update-stats)
-    (when-not animations?
-      (<! (timeout (@settings/timing :step))))
-    (let [n (dec n)]
-      (if (pos? n)
-        (emit :run-next n animations?)
-        (emit :running false)))))
+(defn cruise [[bottom top] [up down] duration x]
+  (let [height (- top bottom)]
+    (condp > x
+      up bottom
+      (+ up duration) (+ bottom (* height (animations/ease-in-out (/ (- x up) duration))))
+      down top
+      (+ down duration) (- top (* height (animations/ease-in-out (/ (- x down) duration))))
+      bottom)))
+
+(defn run-steps [left total animations?]
+  (let [progress (/ (- total left) total)
+        max-speed 10
+        speed (cruise [1 max-speed] [0.05 0.95] 0.05 progress)
+        animate? (and animations? (< speed max-speed))]
+    (go
+      (emit :roll)
+      (emit :determine-capacity)
+      (when animate?
+        (emit :intaking true)
+        (<! (animations/run speed))
+        (emit :intaking false))
+      (emit :transfer-to-processed)
+      (emit :transfer-to-next-station)
+      (emit :set-spacing)
+      (when animate?
+        (emit :dropping true)
+        (<! (animations/run speed))
+        (emit :dropping false))
+      (emit :integrate)
+      (emit :update-stats)
+      (when-not animate?
+        (<! (timeout (@settings/timing :step))))
+      (let [left (dec left)]
+        (if (pos? left)
+          (emit :run-next left total animations?)
+          (emit :running false))))))
 
 (defn initialize-setup! []
   (go
@@ -148,11 +161,11 @@
            (let [rng (m :rng)]
              (-> m
                (update-in [:setup :step] inc)
-               (update :setup u/roll-dice (repeatedly #(spy (inc (rng/rand-int rng 6))))))))))
+               (update :setup u/roll-dice (repeatedly #(inc (rng/rand-int rng 6)))))))))
 
 (defmethod emit :run [_ n animations?]
-  (run-steps n animations?)
-  (swap! model assoc :running? true))
+  (run-steps n n animations?)
+  (swap! model assoc :running? true :start-timestamp (js/Date.)))
 
 (defmethod emit :determine-capacity [_]
   (swap! model update :setup u/determine-capacities))
@@ -176,11 +189,20 @@
   (swap! model update :setup u/stats-history))
 
 (defmethod emit :running [_ v]
-  (swap! model assoc :running? v))
+  (println "Run time"
+           (/ (- (.getTime (js/Date.))
+                 (.getTime (:start-timestamp @model)))
+              1000)
+           "seconds")
+  (swap! model
+         (fn [m]
+           (-> m
+             (assoc :running? v)
+             (dissoc :start-timestamp)))))
 
-(defmethod emit :run-next [_ n animations?]
+(defmethod emit :run-next [_ left total animations?]
   (when (@model :running?)
-    (run-steps n animations?))
+    (run-steps left total animations?))
   @model)
 
 (defmethod emit :execute [_ n]

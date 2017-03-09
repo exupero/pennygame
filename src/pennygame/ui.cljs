@@ -223,7 +223,8 @@
               delivery (stats :delivery 0)]
           [:g {}
            [:text {:class "infotext fill"
-                   :dy 24}
+                   :dy 24
+                   :text-anchor "start"}
             (if (zero? delivery) "Days" delivery)]
            [:text {:class "infotext fill"
                    :dx w
@@ -332,9 +333,9 @@
   [:div {:id "controls"}
     [:section {:className "slidden"}
      [:button {:onclick #(emit :run 1 true)} "Roll"]
-     [:button {:onclick #(emit :run 100 true)} "Run"]
-     [:button {:onclick #(emit :run 100 false)} "Run Fast"]
-     [:button {:onclick #(emit :execute 100)} "Run Instantly"]
+     [:button {:onclick #(emit :run 200 true)} "Run"]
+     [:button {:onclick #(emit :run 200 false)} "Run Fast"]
+     [:button {:onclick #(emit :execute 200)} "Run Instantly"]
      [:button {:onclick #(emit :info (not info?))}
       (if info? "Hide info" "Show info")]
      [:button {:onclick #(emit :graphs (not graphs?))}
@@ -354,7 +355,7 @@
 (defn ui [{{:keys [width height step dice scenarios averages] :as setup} :setup :keys [info? graphs?] :as model} emit]
   [:main {}
    [:div {:style {:position :fixed :left "5px" :top "5px"}}
-    [:div {} [:span {} step] " days"]]
+    [:div {:id "days"} [:span {} step] " days"]]
    (controls model emit)
    [:svg {:id "space" :width "100%" :height "99%"}
     [:defs {}
